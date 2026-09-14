@@ -1,0 +1,79 @@
+# Render Blueprint for StarEastStore - a Django web service + PostgreSQL.
+#
+# Usage: Render Dashboard -> Blueprints -> New Blueprint Instance -> this repo.
+# Docs:  https://render.com/docs/blueprint-spec
+#
+# You usually do not need to set ALLOWED_HOSTS / CSRF_TRUSTED_ORIGINS: the
+# Django settings read the service's own hostname from RENDER_EXTERNAL_HOSTNAME
+# (set automatically by Render) and allow it. Configure them only for *custom*
+# domains - see the commented entries at the bottom.
+#
+# Free plan notes: free web services sleep after ~15 minutes without traffic
+# (slow first request) and free PostgreSQL databases expire 30 days after
+# creation. Switch `plan` to a paid instance type for production use.
+
+databases:
+  - name: stareaststore-db
+    plan: free
+    databaseName: stareaststore
+    user: stareaststore
+
+services:
+  - type: web
+    name: stareaststore
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: './build.sh'
+    startCommand: 'gunicorn ecommerce.wsgi:application --config gunicorn.conf.py'
+    healthCheckPath: /health/
+    autoDeployTrigger: commit
+    previews:
+      generation: automatic # PR previews get their own *.onrender.com hostname
+    envVars:
+      - key: PYTHON_VERSION
+        value: '3.12.6'
+      - key: DEBUG
+        value: 'False'
+      - key: SECRET_KEY
+        generateValue: true # Render generates a strong value on first deploy
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stareaststore-db
+          property: connectionString
+      - key: WEB_CONCURRENCY
+        value: '4'
+      - key: STATIC_MANIFEST
+        value: 'True' # hashed + compressed static filenames
+      - key: BEHIND_PROXY
+        value: 'True' # Render terminates TLS and sets X-Forwarded-Proto
+      - key: SIMULATED_GATEWAY_ENABLED
+        value: 'False' # no demo gateway on a public deployment
+      - key: EMAIL_BACKEND
+        value: 'django.core.mail.backends.console.EmailBackend'
+
+      # --- Custom domains -------------------------------------------------
+      # Add your domain(s) here as well as in the Render dashboard
+      # ("Settings -> Custom Domains"), then uncomment and deploy.
+      # - key: ALLOWED_HOSTS
+      #   value: 'stareaststore.onrender.com,www.example.com,example.com'
+      # - key: CSRF_TRUSTED_ORIGINS
+      #   value: 'https://www.example.com,https://example.com'
+
+      # --- Secrets to enter in the dashboard (never commit them) ----------
+      # - key: EMAIL_HOST
+      #   sync: false
+      # - key: EMAIL_HOST_USER
+      #   sync: false
+      # - key: EMAIL_HOST_PASSWORD
+      #   sync: false
+      # - key: STRIPE_SECRET_KEY
+      #   sync: false
+      # - key: STRIPE_PUBLISHABLE_KEY
+      #   sync: false
+      # - key: STRIPE_WEBHOOK_SECRET
+      #   sync: false
+      # - key: RAZORPAY_KEY_ID
+      #   sync: false
+      # - key: RAZORPAY_KEY_SECRET
+      #   sync: false

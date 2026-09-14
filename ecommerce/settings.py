@@ -16,6 +16,13 @@ from urllib.parse import urlparse, parse_qsl, unquote
 
 from dotenv import load_dotenv
 
+from .deployment import (
+    merge_unique,
+    platform_hostnames,
+    platform_origins,
+    running_on_render,
+)
+
 # ---------------------------------------------------------------------------
 # Paths & environment
 # ---------------------------------------------------------------------------
@@ -68,16 +75,41 @@ SECRET_KEY = env(
     'django-insecure-dev-only-key-#change-me-in-production-0x4f2a',
 )
 
-DEBUG = env_bool('DEBUG', True)
+# Hosting platforms inject the public hostname of the running service (Render
+# sets RENDER_EXTERNAL_HOSTNAME / RENDER=true).  Detecting the platform lets us
+# apply production-safe defaults *and* accept the platform's own hostname, so a
+# deploy never comes up answering 400 Bad Request because ALLOWED_HOSTS was
+# left at its development value.
+ON_RENDER = running_on_render(os.environ)
+
+# Run with DEBUG=False when hosted; local checkouts keep the friendly default.
+DEBUG = env_bool('DEBUG', not ON_RENDER)
+
+# Platform hostnames (e.g. stareaststore.onrender.com) are merged into whatever
+# is configured, so a missing/stale dashboard value cannot take the whole site
+# down.  Opt out with DISABLE_PLATFORM_AUTODETECT=True.
+_platform_hosts = (
+    []
+    if env_bool('DISABLE_PLATFORM_AUTODETECT', False)
+    else platform_hostnames(os.environ)
+)
 
 if DEBUG:
-    ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', ['*'])
+    ALLOWED_HOSTS = merge_unique(env_list('ALLOWED_HOSTS', ['*']), _platform_hosts)
 else:
-    ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1'])
+    ALLOWED_HOSTS = merge_unique(
+        env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1']), _platform_hosts
+    )
 
-CSRF_TRUSTED_ORIGINS = env_list(
-    'CSRF_TRUSTED_ORIGINS',
-    ['http://localhost:8000', 'http://127.0.0.1:8000'],
+# The CSRF origin check applies to every HTTPS request, so the platform's own
+# origin must be trusted as well - otherwise logins, the cart and checkout all
+# fail with 403 once the site runs behind the platform's TLS proxy.
+CSRF_TRUSTED_ORIGINS = merge_unique(
+    env_list(
+        'CSRF_TRUSTED_ORIGINS',
+        ['http://localhost:8000', 'http://127.0.0.1:8000'],
+    ),
+    [] if env_bool('DISABLE_PLATFORM_AUTODETECT', False) else platform_origins(os.environ),
 )
 
 INSTALLED_APPS = [
@@ -210,6 +242,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Serve /media/ uploads from Django when there is no separate web server in
+# front of the app (Render's native runtime has no nginx). Defaults to on for
+# hosted/platform deployments; set SERVE_MEDIA=False and point MEDIA_URL at
+# object storage for a high-traffic store.
+SERVE_MEDIA = env_bool('SERVE_MEDIA', ON_RENDER)
+
 # WhiteNoise: compressed storage by default.  Enable the manifest finder in
 # production (after ``collectstatic``) with STATIC_MANIFEST=True.
 if env_bool('STATIC_MANIFEST', False):
@@ -340,10 +378,17 @@ if not DEBUG:
     SESSION_COOKIE_HTTPONLY = True
     CSRF_COOKIE_HTTPONLY = True
 
-    if env_bool('SECURE_SSL_REDIRECT', False):
-        SECURE_SSL_REDIRECT = True
-    if env_bool('BEHIND_PROXY', False):
+    # Render (and similar platforms) terminate TLS at their edge and forward
+    # the original scheme in X-Forwarded-Proto.  Without this Django believes
+    # every request is plain HTTP: absolute URLs (payment return URLs) are
+    # built as http:// and secure-cookie/CSRF handling is wrong.
+    if env_bool('BEHIND_PROXY', ON_RENDER):
         SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    if env_bool('SECURE_SSL_REDIRECT', ON_RENDER):
+        SECURE_SSL_REDIRECT = True
+        # Health probes / container checks reach the app without going through
+        # the platform proxy, so keep them answering without a redirect.
+        SECURE_REDIRECT_EXEMPT = [r'^health/?$']
     if env_bool('SECURE_HSTS', True):
         SECURE_HSTS_SECONDS = env_int('SECURE_HSTS_SECONDS', 31536000)
         SECURE_HSTS_INCLUDE_SUBDOMAINS = True

@@ -28,7 +28,7 @@ inventory updates → order history.
 | **API** | DRF endpoints for products/categories/brands (filter+search+ordering), cart, wishlist, orders, reviews, token auth |
 | **Email** | Welcome, password reset, order confirmation, payment confirmation, shipped/delivered/cancelled notifications — all configurable via env vars |
 | **Security** | CSRF, XSS/SQLi-safe ORM, clickjacking protection, upload validation (extension + magic bytes + size), rate limiting, hardened production settings, `.env` secrets |
-| **Testing** | 156 automated tests covering registration, cart, coupons, checkout, payment verification, inventory, permissions, reviews, wishlist, APIs |
+| **Testing** | 173 automated tests covering registration, cart, coupons, checkout, payment verification, inventory, permissions, reviews, wishlist, APIs |
 
 ## Technology
 
@@ -91,7 +91,7 @@ python manage.py createsuperuser    # prompts for email + password
 python manage.py test
 ```
 
-156 tests cover registration/login, product search & filters, cart operations
+173 tests cover registration/login, product search & filters, cart operations
 and quantity validation, coupon rules, checkout, order creation, inventory
 reduction/restoration, payment verification & idempotency, permissions,
 reviews and the wishlist.
@@ -161,11 +161,17 @@ STRIPE_SECRET_KEY= STRIPE_PUBLISHABLE_KEY= STRIPE_WEBHOOK_SECRET=
 RAZORPAY_KEY_ID= RAZORPAY_KEY_SECRET= RAZORPAY_WEBHOOK_SECRET=
 TAX_RATE=0.00
 FREE_SHIPPING_THRESHOLD=75
+ALLOWED_HOSTS= CSRF_TRUSTED_ORIGINS=              # required for custom domains
+SERVE_MEDIA= AUTO_MIGRATE= AUTO_COLLECTSTATIC=     # defaults suit Render deploys
 ```
 
 Payment gateways activate automatically when their SDK is installed and keys
 are configured; the simulated gateway is enabled in DEBUG mode by default
 (`SIMULATED_GATEWAY_ENABLED`).
+
+`ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` only need the hostnames you serve from
+yourself: on Render the platform's own `*.onrender.com` hostname is detected
+automatically (`DISABLE_PLATFORM_AUTODETECT=True` opts out).
 
 ## Payment configuration
 
@@ -234,16 +240,116 @@ proxy) and TLS via certbot. Key production settings (all env-driven):
 `SECURE_SSL_REDIRECT`, `SECURE_COOKIES`, `SECURE_HSTS`, `BEHIND_PROXY`,
 `STATIC_MANIFEST=True` (hashed, compressed static files).
 
+### Render
+
+The repository ships a [Render Blueprint](https://render.com/docs/blueprint-spec)
+(`render.yaml`) that creates the Django web service **and** its PostgreSQL
+database:
+
+1. Push this repository to GitHub (or GitLab/Bitbucket).
+2. In the Render Dashboard: **New → Blueprint Instance**, pick the repository,
+   click **Apply**. Render builds with `build.sh`, applies migrations, collects
+   static files and starts Gunicorn.
+3. Create the first admin account from the Render **Shell**:
+   `python manage.py createsuperuser`.
+4. Optional demo data (their own accounts, 32 products, coupons):
+   `python manage.py seed_data`.
+
+Your service is reachable at `https://<service-name>.onrender.com` - the
+hostname follows the service name, so keep it as `stareaststore` if you want
+`stareaststore.onrender.com`.
+
+**Environment variables.** The only ones required are `SECRET_KEY` (use
+*Generate*) and `DATABASE_URL` (the blueprint wires it up automatically from the
+database it creates). `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` do **not** have
+to be set: on startup the app reads the service's own hostname from Render's
+`RENDER_EXTERNAL_HOSTNAME` environment variable and allows it. Add entries there
+only for **custom domains**, e.g.
+
+```dotenv
+ALLOWED_HOSTS=stareaststore.onrender.com,example.com,www.example.com
+CSRF_TRUSTED_ORIGINS=https://example.com,https://www.example.com
+```
+
+Existing service deployed by hand? Set the Build Command to `./build.sh`, the
+Start Command to
+`gunicorn ecommerce.wsgi:application --config gunicorn.conf.py`, the Health
+Check Path to `/health/` and add the `SECRET_KEY` / `DATABASE_URL` (plus
+`DEBUG=False`) environment variables, then trigger a deploy.
+
+Two useful notes for Render's free plan: web services spin down after ~15
+minutes of inactivity (the next request is slow), and free PostgreSQL databases
+expire 30 days after creation. Gunicorn binds `$PORT` automatically, and on
+Render `DEBUG` defaults to `False` and `SECURE_SSL_REDIRECT`/`BEHIND_PROXY` to
+`True`.
+
+**Uploaded files.** Render's native runtime has no web server in front of the
+app, so `/media/` uploads (product images, avatars) are served by Django itself
+(`SERVE_MEDIA`, on by default there). They are stored on the instance's disk,
+which Render replaces on every deploy - attach a [persistent disk](https://render.com/docs/disks)
+mounted at `/app/media` (paid plans) or switch to object storage
+(`SERVE_MEDIA=False` + a custom storage backend) if you keep uploads.
+
 ### Production checklist
 
 - [ ] `DEBUG=False`, unique `SECRET_KEY` from the environment
 - [ ] PostgreSQL `DATABASE_URL` with a strong password
-- [ ] `ALLOWED_HOSTS` + `CSRF_TRUSTED_ORIGINS` set to your domain
+- [ ] `ALLOWED_HOSTS` + `CSRF_TRUSTED_ORIGINS` set to your domain (Render's own
+      hostname is detected automatically)
 - [ ] HTTPS terminated at Nginx/load balancer; `SECURE_SSL_REDIRECT=True`
 - [ ] SMTP email backend configured (`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`)
 - [ ] Change/remove the seeded admin & demo users (`python manage.py shell`)
 - [ ] `SIMULATED_GATEWAY_ENABLED=False` once real gateways are configured
 - [ ] Regular `manage.py migrate` during deploys; database backups scheduled
+
+## Troubleshooting
+
+### Every page returns "400 Bad request" (or looks like a 404) after deploying
+
+Django rejects any request whose `Host` header is not in `ALLOWED_HOSTS` with a
+`DisallowedHost` error, which renders the branded **400** page. Because the check
+runs before routing, *all* URLs fail at once - the homepage, `/health/`, the
+stylesheets under `/static/...` - so the deployment looks like the site (or the
+page you requested) does not exist.
+
+It happens when `DEBUG=False` and `ALLOWED_HOSTS` still holds the development
+value (`localhost,127.0.0.1`). This project prevents it automatically: the
+settings module reads the service's own hostname from Render's
+`RENDER_EXTERNAL_HOSTNAME` (also `RENDER_EXTERNAL_URL`) and adds it to
+`ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS`. If you are on another host (Railway,
+Fly, a VPS...), set them yourself:
+
+```dotenv
+ALLOWED_HOSTS=mystore.example.com
+CSRF_TRUSTED_ORIGINS=https://mystore.example.com
+```
+
+Related symptoms with the same root cause: forms (login, cart, checkout) failing
+with **403 CSRF verification failed** - the site's origin is missing from
+`CSRF_TRUSTED_ORIGINS`; or payment redirects pointing at `http://` - set
+`BEHIND_PROXY=True` when a load balancer terminates TLS.
+
+### Product images 404 under `/media/` after deploying
+
+Django only serves uploads automatically while `DEBUG=True`. On a platform
+without a web server in front of the app, set `SERVE_MEDIA=True` (the default on
+Render) so Django serves them, or point `MEDIA_URL` at object storage/CDN. Note
+that on hosts with an ephemeral filesystem the files themselves are lost on
+redeploy - see the Render section above.
+
+### Deployed site loads, but is unstyled and 404s under `/static/`
+
+`collectstatic` did not run during the build. `build.sh` handles this (and
+`gunicorn.conf.py` retries it at startup on Render); otherwise run
+`python manage.py collectstatic --noinput` in your release step.
+
+### Database errors: "no such table" / "relation does not exist"
+
+Migrations were never applied to the deployed database. `build.sh` runs
+`manage.py migrate` and, on Render, Gunicorn re-applies them at startup
+(`AUTO_MIGRATE=False` disables that). Attach a PostgreSQL database and set
+`DATABASE_URL`: without it the app falls back to SQLite, whose file lives on the
+service's ephemeral disk and is wiped on every deploy.
 
 ## Management commands
 
