@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}My addresses{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="se-section-title mb-0"><i class="bi bi-geo-alt me-2"></i>My addresses</h1>
+    <a href="{% url 'accounts:address_create' %}" class="btn se-btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add address</a>
+  </div>
+  {% if addresses %}
+  <div class="row g-3">
+    {% for address in addresses %}
+    <div class="col-md-6 col-xl-4">
+      <div class="card se-address-tile {% if address.is_default %}se-address-default{% endif %}">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start">
+            <span class="fw-semibold">{{ address.full_name }}</span>
+            {% if address.is_default %}<span class="badge se-badge-featured">Default</span>{% endif %}
+          </div>
+          <p class="text-secondary small mb-3">
+            {{ address.address_line_1 }}{% if address.address_line_2 %}, {{ address.address_line_2 }}{% endif %}<br>
+            {{ address.city }}, {{ address.state }} {{ address.postal_code }}<br>
+            {{ address.country }}<br>
+            {{ address.phone }}
+          </p>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'accounts:address_edit' address.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+            {% if not address.is_default %}
+            <form method="post" action="{% url 'accounts:address_edit' address.pk %}" class="d-none"></form>
+            {% endif %}
+            <form method="post" action="{% url 'accounts:address_delete' address.pk %}"
+                  onsubmit="return confirm('Delete this address?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="se-empty-state">
+    <i class="bi bi-geo-alt"></i>
+    <h5>No addresses yet</h5>
+    <p class="text-secondary">Add a shipping address to speed up checkout.</p>
+    <a href="{% url 'accounts:address_create' %}" class="btn se-btn-primary">Add your first address</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

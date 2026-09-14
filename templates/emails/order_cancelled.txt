@@ -1,0 +1,9 @@
+Hi {{ order.shipping_full_name }},
+
+Your order {{ order.order_number }} has been cancelled.
+{% if order.payment_status == 'refunded' %}
+A refund of ${{ order.total|floatformat:2 }} has been initiated and will arrive with your payment provider within 5-10 business days.
+{% endif %}
+If you cancelled by mistake, just place a new order - we'd love to have you back.
+
+- The StarEastStore team

@@ -1,0 +1,8 @@
+Hi {{ order.shipping_full_name }},
+
+Your order {{ order.order_number }} has been delivered. We hope you love it!
+
+If anything isn't right, reply to this email within 30 days and we'll make it better.
+
+Happy shopping!
+- The StarEastStore team

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Your cart{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <h1 class="se-section-title mb-4"><i class="bi bi-bag me-2"></i>Your cart {% if count %}<span class="text-secondary fs-6">({{ count }} item{{ count|pluralize }})</span>{% endif %}</h1>
+
+  {% if lines %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card se-form-card">
+        <div class="table-responsive">
+          <table class="table align-middle se-cart-table mb-0">
+            <thead>
+              <tr>
+                <th>Product</th><th class="text-center">Quantity</th>
+                <th class="text-end">Price</th><th class="text-end">Total</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in lines %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-3">
+                    {% with primary=line.product.primary_image %}
+                      {% if primary and primary.image %}
+                        <img src="{{ primary.image.url }}" alt="{{ line.product.name }}" class="se-cart-thumb">
+                      {% else %}
+                        <div class="se-cart-thumb se-img-placeholder d-flex align-items-center justify-content-center"><i class="bi bi-image"></i></div>
+                      {% endif %}
+                    {% endwith %}
+                    <div>
+                      <a href="{{ line.product.get_absolute_url }}" class="fw-semibold d-block">{{ line.product.name }}</a>
+                      {% if line.variant %}<small class="text-secondary">{{ line.variant.display_name }} · {{ line.variant.sku }}</small>{% else %}<small class="text-secondary">{{ line.product.sku }}</small>{% endif %}
+                    </div>
+                  </div>
+                </td>
+                <td class="text-center">
+                  <form method="post" action="{% url 'cart:update' %}" class="d-inline-flex align-items-center gap-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ line.product_id }}">
+                    <input type="hidden" name="variant_id" value="{{ line.variant_id|default:'' }}">
+                    <input type="number" name="quantity" value="{{ line.quantity }}" min="1" max="{{ line.available_stock }}" class="form-control form-control-sm text-center se-qty-input" aria-label="Quantity for {{ line.product.name }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="Update quantity"><i class="bi bi-arrow-repeat"></i></button>
+                  </form>
+                  {% if line.quantity >= line.available_stock %}
+                    <div class="text-warning small mt-1"><i class="bi bi-exclamation-triangle"></i> Max available</div>
+                  {% endif %}
+                </td>
+                <td class="text-end">{{ CURRENCY }}{{ line.unit_price|floatformat:2 }}</td>
+                <td class="text-end fw-semibold">{{ CURRENCY }}{{ line.line_total|floatformat:2 }}</td>
+                <td class="text-end">
+                  <form method="post" action="{% url 'cart:remove' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ line.product_id }}">
+                    <input type="hidden" name="variant_id" value="{{ line.variant_id|default:'' }}">
+                    <button type="submit" class="btn btn-sm btn-link text-danger p-0" aria-label="Remove {{ line.product.name }}"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer bg-transparent d-flex justify-content-between">
+          <a href="{% url 'products:list' %}" class="btn btn-link text-decoration-none p-0"><i class="bi bi-arrow-left me-1"></i>Continue shopping</a>
+          <form method="post" action="{% url 'cart:clear' %}" onsubmit="return confirm('Empty your cart?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-link text-danger text-decoration-none p-0"><i class="bi bi-trash me-1"></i>Clear cart</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card se-summary-card">
+        <div class="card-body p-4">
+          <h2 class="h5 fw-bold mb-3">Order summary</h2>
+          <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Subtotal</span><span>{{ CURRENCY }}{{ subtotal|floatformat:2 }}</span></div>
+          <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Shipping</span><span class="text-secondary small">Calculated at checkout</span></div>
+          <hr>
+          <div class="d-flex justify-content-between fs-5 fw-bold"><span>Total</span><span>{{ CURRENCY }}{{ subtotal|floatformat:2 }}</span></div>
+          <p class="text-secondary small mt-2 mb-0"><i class="bi bi-tag me-1"></i>Coupons can be applied at checkout.</p>
+          <a href="{% url 'orders:checkout' %}" class="btn se-btn-primary w-100 mt-3">
+            <i class="bi bi-lock me-2"></i>Proceed to checkout
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="se-empty-state">
+    <i class="bi bi-bag-x"></i>
+    <h5>Your cart is empty</h5>
+    <p class="text-secondary">Looks like you haven't added anything yet.</p>
+    <a href="{% url 'products:list' %}" class="btn se-btn-primary">Start shopping</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

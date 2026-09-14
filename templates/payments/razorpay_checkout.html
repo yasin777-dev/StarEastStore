@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% comment %}
+Razorpay Checkout page. Loads Razorpay's hosted checkout.js and posts the
+payment identifiers back to our server, where the signature is verified
+server-side before the order is marked paid.
+{% endcomment %}
+{% block title %}Razorpay payment{% endblock %}
+{% block content %}
+<section class="container py-5 text-center">
+  <h1 class="h4 fw-bold mb-2">Complete your Razorpay payment</h1>
+  <p class="text-secondary">Order {{ order.order_number }} · Amount: ₹{{ txn.amount|floatformat:2 }}</p>
+  <button id="rzp-button" class="btn se-btn-primary btn-lg"><i class="bi bi-lightning-charge me-2"></i>Pay with Razorpay</button>
+  <p id="rzp-status" class="text-secondary small mt-3"></p>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  var options = {
+    key: '{{ razorpay_key_id }}',
+    amount: {{ amount_paise }},
+    currency: '{{ txn.currency }}',
+    name: '{{ SHOP_NAME }}',
+    description: 'Order {{ order.order_number }}',
+    order_id: '{{ razorpay_order_id }}',
+    handler: function (response) {
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = "{% url 'payments:verify' txn.reference %}";
+      var csrf = '{{ csrf_token }}';
+      [['razorpay_order_id', response.razorpay_order_id],
+       ['razorpay_payment_id', response.razorpay_payment_id],
+       ['razorpay_signature', response.razorpay_signature],
+       ['csrfmiddlewaretoken', csrf]].forEach(function (pair) {
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = pair[0]; input.value = pair[1];
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    },
+    theme: { color: '#4f46e5' }
+  };
+  var rzp = new Razorpay(options);
+  document.getElementById('rzp-button').onclick = function (e) { e.preventDefault(); rzp.open(); };
+  rzp.on('payment.failed', function () {
+    document.getElementById('rzp-status').textContent = 'Payment failed. You can retry from your order page.';
+  });
+  window.addEventListener('load', function () { rzp.open(); });
+</script>
+{% endblock %}

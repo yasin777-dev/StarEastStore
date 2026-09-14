@@ -1,0 +1,6 @@
+New contact form message:
+
+From: {{ message.name }} <{{ message.email }}>
+Subject: {{ message.subject }}
+
+{{ message }}
