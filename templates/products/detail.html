@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load shop_extras %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block meta_description %}{{ product.short_description|default:product.description|truncatechars:150 }}{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <nav aria-label="breadcrumb" class="small">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:home' %}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'products:list' %}">Shop</a></li>
+      {% if product.category %}<li class="breadcrumb-item"><a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a></li>{% endif %}
+      <li class="breadcrumb-item active" aria-current="page">{{ product.name|truncatechars:40 }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-5">
+    <!-- Gallery -->
+    <div class="col-lg-6">
+      <div class="se-gallery">
+        <div class="se-gallery-main">
+          {% with primary=product.primary_image %}
+          <img id="mainProductImage" src="{% if primary and primary.image %}{{ primary.image.url }}{% else %}{% static 'img/placeholder.svg' %}{% endif %}"
+               alt="{% if primary %}{{ primary.alt_text|default:product.name }}{% else %}{{ product.name }}{% endif %}">
+          {% endwith %}
+          {% if product.is_on_sale %}<span class="badge se-badge-sale position-absolute top-0 start-0 m-3">-{{ product.discount_percent }}%</span>{% endif %}
+        </div>
+        {% if product.images.count > 1 %}
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+          {% for image in product.images.all %}
+          <button type="button" class="se-thumb {% if forloop.first %}active{% endif %}" data-image-url="{{ image.image.url }}" aria-label="View image {{ forloop.counter }}">
+            <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:product.name }}" loading="lazy">
+          </button>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="col-lg-6">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        {% if product.brand %}<a href="{{ product.brand.get_absolute_url }}" class="se-brand-chip">{{ product.brand.name }}</a>{% endif %}
+        {% if product.rating_summary.count %}
+          <span class="small"><i class="bi bi-star-fill text-warning"></i> {{ product.rating_summary.average }} · {{ product.rating_summary.count }} review{{ product.rating_summary.count|pluralize }}</span>
+        {% endif %}
+      </div>
+      <h1 class="h2 fw-bold">{{ product.name }}</h1>
+      {% if product.short_description %}<p class="text-secondary">{{ product.short_description }}</p>{% endif %}
+
+      <div class="d-flex align-items-baseline gap-2 my-3">
+        <span class="se-detail-price">{{ CURRENCY }}{{ product.effective_price|floatformat:2 }}</span>
+        {% if product.is_on_sale %}<s class="text-secondary">{{ CURRENCY }}{{ product.price|floatformat:2 }}</s>
+          <span class="badge se-badge-sale">Save {{ product.discount_percent }}%</span>{% endif %}
+      </div>
+
+      <p class="mb-1">
+        {% if product.stock_status == 'in_stock' %}
+          <span class="badge text-bg-success-subtle se-stock-badge in-stock"><i class="bi bi-check-circle me-1"></i>In stock</span>
+        {% elif product.stock_status == 'low_stock' %}
+          <span class="badge se-stock-badge low-stock"><i class="bi bi-exclamation-triangle me-1"></i>Only {{ product.stock_quantity }} left</span>
+        {% else %}
+          <span class="badge se-stock-badge out-of-stock"><i class="bi bi-x-circle me-1"></i>Out of stock</span>
+        {% endif %}
+        <span class="text-secondary small ms-2">SKU: {{ product.sku }}</span>
+      </p>
+
+      {% if product.is_in_stock %}
+      <form method="post" action="{% url 'cart:add' %}" id="addToCartForm" class="mt-4 se-add-form">
+        {% csrf_token %}
+        <input type="hidden" name="product_id" value="{{ product.pk }}">
+        <input type="hidden" name="variant_id" id="variantIdInput" value="">
+
+        {% if variants %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Choose an option</label>
+          <div class="d-flex gap-2 flex-wrap" id="variantSelector">
+            {% for variant in variants %}
+            <button type="button" class="btn se-variant-btn {% if forloop.first %}selected{% endif %}"
+                    data-variant-id="{{ variant.pk }}"
+                    data-price="{{ variant.effective_price|floatformat:2 }}"
+                    data-stock="{{ variant.stock_quantity }}"
+                    {% if not variant.is_in_stock %}disabled{% endif %}
+                    aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+              {{ variant.display_name }}
+              {% if not variant.is_in_stock %}<small class="d-block text-danger">out of stock</small>{% endif %}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="input-group se-qty-group" style="max-width: 150px;">
+            <button type="button" class="btn btn-outline-secondary" data-qty-step="-1" aria-label="Decrease quantity">−</button>
+            <input type="number" name="quantity" id="quantityInput" class="form-control text-center" value="1" min="1" max="99" aria-label="Quantity">
+            <button type="button" class="btn btn-outline-secondary" data-qty-step="1" aria-label="Increase quantity">+</button>
+          </div>
+          <button type="submit" class="btn se-btn-primary flex-grow-1">
+            <i class="bi bi-bag-plus me-2"></i>Add to cart
+          </button>
+        </div>
+        <button type="submit" name="next" value="checkout" class="btn se-btn-dark w-100 mt-2">
+          <i class="bi bi-lightning-fill me-2"></i>Buy now
+        </button>
+      </form>
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'wishlist:toggle' product.pk %}" class="mt-3 d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn se-btn-outline"><i class="bi bi-heart me-2"></i>Add to wishlist</button>
+      </form>
+      {% endif %}
+      {% else %}
+      <div class="alert alert-secondary mt-4"><i class="bi bi-bell me-2"></i>This item is currently unavailable. Check back soon!</div>
+      {% endif %}
+
+      <div class="se-perks-row d-flex flex-wrap gap-3 mt-4 small text-secondary">
+        <span><i class="bi bi-truck me-1"></i>Free shipping over {{ CURRENCY }}{{ FREE_SHIPPING_THRESHOLD|floatformat:0 }}</span>
+        <span><i class="bi bi-arrow-repeat me-1"></i>30-day returns</span>
+        <span><i class="bi bi-shield-check me-1"></i>Secure payment</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="row mt-5">
+    <div class="col-lg-8">
+      <div class="card se-detail-card">
+        <div class="card-body p-4">
+          <h2 class="h5 fw-bold mb-3">Product description</h2>
+          <p class="text-secondary mb-0">{{ product.description|linebreaksbr }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div class="row mt-5" id="reviews">
+    <div class="col-lg-8">
+      <h2 class="se-section-title">Customer reviews</h2>
+      {% if rating_data.count %}
+      <div class="row g-4 align-items-center se-rating-summary">
+        <div class="col-md-4 text-center">
+          <div class="display-4 fw-bold">{{ rating_data.average }}</div>
+          <div class="se-stars mb-1">
+            {% for i in "12345" %}{% if forloop.counter <= rating_data.average|floatformat:0 %}<i class="bi bi-star-fill text-warning"></i>{% else %}<i class="bi bi-star text-warning"></i>{% endif %}{% endfor %}
+          </div>
+          <span class="text-secondary small">{{ rating_data.count }} review{{ rating_data.count|pluralize }}</span>
+        </div>
+        <div class="col-md-8">
+          {% for stars in "54321" %}
+          {% with count=rating_data.distribution|get_item:stars %}
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="small text-secondary" style="width:60px;">{{ stars }} star{{ stars|pluralize }}</span>
+            <div class="progress flex-grow-1" style="height:8px;">
+              <div class="progress-bar bg-warning" style="width:{% widthratio count rating_data.count 100 as pct %}{{ pct|default:0 }}%;"></div>
+            </div>
+            <span class="small text-secondary" style="width:24px;text-align:right;">{{ count }}</span>
+          </div>
+          {% endwith %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="mt-4">
+        {% for review in reviews %}
+        <div class="card se-review-card mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <span class="se-stars small">
+                  {% for i in "12345" %}{% if forloop.counter <= review.rating %}<i class="bi bi-star-fill text-warning"></i>{% else %}<i class="bi bi-star text-warning"></i>{% endif %}{% endfor %}
+                </span>
+                <h6 class="fw-bold mt-2 mb-1">{{ review.title }}</h6>
+              </div>
+              {% if review.is_verified_purchase %}<span class="badge se-badge-featured align-self-start">Verified purchase</span>{% endif %}
+            </div>
+            <p class="text-secondary mb-2">{{ review.text }}</p>
+            <small class="text-secondary">{{ review.reviewer_name }} · {{ review.created_at|date:"M j, Y" }}</small>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-secondary">No reviews yet. Be the first to share your experience!</p>
+        {% endfor %}
+      </div>
+
+      {% if user.is_authenticated %}
+        {% if user_review %}
+          <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>You reviewed this product on {{ user_review.created_at|date:"M j, Y" }}. You can edit your review below.</div>
+        {% elif can_review %}
+          <div class="card se-form-card mt-4">
+            <div class="card-body p-4">
+              <h3 class="h6 fw-bold mb-3">Write a review</h3>
+              <form method="post" action="{% url 'reviews:add' product.slug %}">
+                {% csrf_token %}
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label" for="reviewRating">Rating</label>
+                    <select name="rating" id="reviewRating" class="form-select" required>
+                      <option value="5">5 stars</option><option value="4">4 stars</option>
+                      <option value="3">3 stars</option><option value="2">2 stars</option>
+                      <option value="1">1 star</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label" for="reviewTitle">Title</label>
+                    <input type="text" name="title" id="reviewTitle" class="form-control" maxlength="150" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="reviewText">Your review</label>
+                    <textarea name="text" id="reviewText" class="form-control" rows="4" required></textarea>
+                  </div>
+                </div>
+                <button type="submit" class="btn se-btn-primary mt-3">Submit review</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-secondary small mt-3"><i class="bi bi-lock me-1"></i>Only customers who have purchased this product can write a review.</p>
+        {% endif %}
+      {% else %}
+        <p class="text-secondary small mt-3"><a href="{% url 'accounts:login' %}">Log in</a> to write a review.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Related -->
+  {% if related_products %}
+  <div class="mt-5">
+    <h2 class="se-section-title mb-4">You may also like</h2>
+    <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-4">
+      {% for product in related_products %}<div class="col">{% include 'partials/product_card.html' %}</div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+  // Variant selection + quantity stepper (client-side convenience only;
+  // all pricing/stock rules are enforced server-side).
+  (function () {
+    var form = document.getElementById('addToCartForm');
+    if (!form) return;
+    var priceEl = document.querySelector('.se-detail-price');
+    var variantInput = document.getElementById('variantIdInput');
+    var selector = document.getElementById('variantSelector');
+
+    function selectVariant(btn) {
+      selector.querySelectorAll('.se-variant-btn').forEach(function (b) {
+        b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('selected'); btn.setAttribute('aria-pressed', 'true');
+      variantInput.value = btn.dataset.variantId;
+      if (priceEl && btn.dataset.price) priceEl.textContent = '$' + btn.dataset.price;
+    }
+    if (selector) {
+      selector.addEventListener('click', function (e) {
+        var btn = e.target.closest('.se-variant-btn');
+        if (btn && !btn.disabled) selectVariant(btn);
+      });
+      var first = selector.querySelector('.se-variant-btn:not([disabled])');
+      if (first) selectVariant(first);
+    }
+    form.addEventListener('click', function (e) {
+      var stepBtn = e.target.closest('[data-qty-step]');
+      if (!stepBtn) return;
+      e.preventDefault();
+      var input = document.getElementById('quantityInput');
+      var next = parseInt(input.value || '1', 10) + parseInt(stepBtn.dataset.qtyStep, 10);
+      input.value = Math.max(1, Math.min(99, next));
+    });
+  })();
+</script>
+{% endblock %}

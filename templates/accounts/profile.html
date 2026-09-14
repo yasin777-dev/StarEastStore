@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <div class="row g-4">
+    <!-- Sidebar -->
+    <aside class="col-lg-3">
+      <div class="card se-form-card text-center">
+        <div class="card-body p-4">
+          {% if user.profile.image %}
+            <img src="{{ user.profile.image.url }}" alt="Profile photo" class="se-avatar mb-3">
+          {% else %}
+            <div class="se-avatar se-avatar-placeholder mx-auto mb-3"><i class="bi bi-person"></i></div>
+          {% endif %}
+          <h2 class="h6 fw-bold mb-0">{{ user.get_full_name|default:user.username }}</h2>
+          <p class="text-secondary small mb-3">{{ user.email }}</p>
+          <span class="badge se-badge-featured">Member since {{ user.date_joined|date:"M Y" }}</span>
+        </div>
+      </div>
+      <div class="list-group se-account-nav mt-3">
+        <a href="{% url 'accounts:profile' %}" class="list-group-item active"><i class="bi bi-person me-2"></i>Profile</a>
+        <a href="{% url 'orders:list' %}" class="list-group-item"><i class="bi bi-box-seam me-2"></i>Orders</a>
+        <a href="{% url 'wishlist:detail' %}" class="list-group-item"><i class="bi bi-heart me-2"></i>Wishlist</a>
+        <a href="{% url 'accounts:address_list' %}" class="list-group-item"><i class="bi bi-geo-alt me-2"></i>Addresses</a>
+        <a href="{% url 'accounts:password_change' %}" class="list-group-item"><i class="bi bi-shield-lock me-2"></i>Change password</a>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="col-lg-9">
+      <div class="card se-form-card">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h5 fw-bold mb-0">Profile details</h1>
+            <a href="{% url 'accounts:profile_edit' %}" class="btn se-btn-outline btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6"><span class="text-secondary small d-block">First name</span><span class="fw-semibold">{{ user.first_name|default:'—' }}</span></div>
+            <div class="col-md-6"><span class="text-secondary small d-block">Last name</span><span class="fw-semibold">{{ user.last_name|default:'—' }}</span></div>
+            <div class="col-md-6"><span class="text-secondary small d-block">Email</span><span class="fw-semibold">{{ user.email }}</span></div>
+            <div class="col-md-6"><span class="text-secondary small d-block">Phone</span><span class="fw-semibold">{{ user.profile.phone|default:'—' }}</span></div>
+            <div class="col-md-6"><span class="text-secondary small d-block">Date of birth</span><span class="fw-semibold">{{ user.profile.date_of_birth|date:"M j, Y"|default:'—' }}</span></div>
+            <div class="col-md-6"><span class="text-secondary small d-block">Addresses saved</span><span class="fw-semibold">{{ user.addresses.count }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

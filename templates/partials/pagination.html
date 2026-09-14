@@ -1,0 +1,41 @@
+{% comment %}
+Reusable pagination. Expects: page_obj; optional: querystring (current GET params without page).
+{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav aria-label="Pagination" class="mt-4">
+  <ul class="pagination se-pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?{{ querystring|safe }}{% if querystring %}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous page">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
+      {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+        <li class="page-item"><a class="page-link" href="?{{ querystring|safe }}{% if querystring %}&{% endif %}page={{ num }}">{{ num }}</a></li>
+      {% elif num == 1 or num == page_obj.paginator.num_pages %}
+        <li class="page-item"><a class="page-link" href="?{{ querystring|safe }}{% if querystring %}&{% endif %}page={{ num }}">{{ num }}</a></li>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?{{ querystring|safe }}{% if querystring %}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Next page">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+    {% endif %}
+  </ul>
+  <p class="text-center text-secondary small">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} · {{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}
+  </p>
+</nav>
+{% endif %}

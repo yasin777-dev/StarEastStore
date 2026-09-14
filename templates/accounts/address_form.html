@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_create %}Add{% else %}Edit{% endif %} address{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card se-form-card">
+        <div class="card-body p-4">
+          <h1 class="h5 fw-bold mb-4">{% if is_create %}Add a new address{% else %}Edit address{% endif %}</h1>
+          <form method="post" novalidate>
+            {% csrf_token %}
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label" for="id_full_name">Full name</label>{{ form.full_name }}{% for e in form.full_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-6"><label class="form-label" for="id_phone">Phone</label>{{ form.phone }}{% for e in form.phone.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-12"><label class="form-label" for="id_address_line_1">Address line 1</label>{{ form.address_line_1 }}{% for e in form.address_line_1.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-12"><label class="form-label" for="id_address_line_2">Address line 2 <span class="text-secondary fw-normal">(optional)</span></label>{{ form.address_line_2 }}</div>
+              <div class="col-md-4"><label class="form-label" for="id_city">City</label>{{ form.city }}{% for e in form.city.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-4"><label class="form-label" for="id_state">State / Province</label>{{ form.state }}{% for e in form.state.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-4"><label class="form-label" for="id_postal_code">Postal code</label>{{ form.postal_code }}{% for e in form.postal_code.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-8"><label class="form-label" for="id_country">Country</label>{{ form.country }}{% for e in form.country.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                  {{ form.is_default }}
+                  <label class="form-check-label" for="id_is_default">Set as default</label>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-4">
+              <button type="submit" class="btn se-btn-primary">Save address</button>
+              <a href="{% url 'accounts:address_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

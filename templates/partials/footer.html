@@ -1,0 +1,52 @@
+<footer class="se-footer mt-auto">
+  <div class="container">
+    <div class="row g-4 py-5">
+      <div class="col-6 col-lg-3">
+        <h5 class="se-footer-brand"><i class="bi bi-stars me-1"></i>{{ SHOP_NAME }}</h5>
+        <p class="text-secondary small">{{ SHOP_TAGLINE }}. Quality products, fair prices,
+          fast delivery - seven days a week.</p>
+      </div>
+      <div class="col-6 col-lg-2">
+        <h6 class="text-uppercase text-secondary small fw-bold">Shop</h6>
+        <ul class="list-unstyled se-footer-links">
+          <li><a href="{% url 'products:list' %}">All products</a></li>
+          <li><a href="{% url 'products:sale' %}">Sale</a></li>
+          <li><a href="{% url 'products:search' %}">Search</a></li>
+          <li><a href="{% url 'cart:detail' %}">Cart</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-2">
+        <h6 class="text-uppercase text-secondary small fw-bold">Account</h6>
+        <ul class="list-unstyled se-footer-links">
+          <li><a href="{% url 'accounts:profile' %}">Profile</a></li>
+          <li><a href="{% url 'orders:list' %}">Orders</a></li>
+          <li><a href="{% url 'wishlist:detail' %}">Wishlist</a></li>
+          <li><a href="{% url 'accounts:register' %}">Register</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-2">
+        <h6 class="text-uppercase text-secondary small fw-bold">Company</h6>
+        <ul class="list-unstyled se-footer-links">
+          <li><a href="{% url 'core:about' %}">About us</a></li>
+          <li><a href="{% url 'core:contact' %}">Contact</a></li>
+          <li><a href="{% url 'core:terms' %}">Terms of service</a></li>
+          <li><a href="{% url 'core:privacy' %}">Privacy policy</a></li>
+        </ul>
+      </div>
+      <div class="col-lg-3">
+        <h6 class="text-uppercase text-secondary small fw-bold">Stay in the loop</h6>
+        <p class="text-secondary small mb-2">Free shipping on orders over {{ CURRENCY }}{{ FREE_SHIPPING_THRESHOLD|floatformat:0 }}.</p>
+        <div class="d-flex gap-3 fs-5">
+          <a href="#" aria-label="Facebook" class="se-social"><i class="bi bi-facebook"></i></a>
+          <a href="#" aria-label="Instagram" class="se-social"><i class="bi bi-instagram"></i></a>
+          <a href="#" aria-label="X" class="se-social"><i class="bi bi-twitter-x"></i></a>
+          <a href="#" aria-label="YouTube" class="se-social"><i class="bi bi-youtube"></i></a>
+        </div>
+      </div>
+    </div>
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-2 py-3 border-top border-secondary-subtle">
+      <span class="text-secondary small">© {% now "Y" %} {{ SHOP_NAME }}. All rights reserved.</span>
+      <span class="text-secondary small"><i class="bi bi-shield-check me-1"></i>Secure checkout · Encrypted payments</span>
+    </div>
+  </div>
+</footer>

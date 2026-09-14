@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Privacy policy{% endblock %}
+{% block content %}
+<section class="container py-5 legal-page">
+  <h1 class="se-section-title mb-4">Privacy policy</h1>
+  <div class="text-secondary">
+    <p><em>Last updated: {% now "F j, Y" %}</em></p>
+    <h5>1. Data we collect</h5>
+    <p>Account details (name, email, phone), shipping addresses, order history, reviews you publish and technical logs required to operate the store.</p>
+    <h5>2. How we use it</h5>
+    <p>To fulfil orders, provide customer support, prevent fraud and improve the store. We never sell personal data.</p>
+    <h5>3. Payments</h5>
+    <p>Card details are processed by our payment providers (e.g. Stripe or Razorpay) and never touch our servers.</p>
+    <h5>4. Cookies</h5>
+    <p>We use session cookies to keep you logged in and store your cart. No third-party advertising trackers.</p>
+    <h5>5. Data retention</h5>
+    <p>Order records are retained as required by tax and accounting rules. You may request deletion of your account data at any time via the contact page.</p>
+    <h5>6. Security</h5>
+    <p>Passwords are hashed, traffic is encrypted and access to customer data is restricted to authorised staff.</p>
+    <h5>7. Contact</h5>
+    <p>Privacy questions? <a href="{% url 'core:contact' %}">Contact us</a>.</p>
+  </div>
+</section>
+{% endblock %}

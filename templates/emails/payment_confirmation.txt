@@ -1,0 +1,7 @@
+Hi {{ order.shipping_full_name }},
+
+We've received your payment of ${{ order.total|floatformat:2 }} for order {{ order.order_number }}.
+
+Your order is now being prepared. We'll email you again as soon as it ships.
+
+- The StarEastStore team

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}About us{% endblock %}
+{% block content %}
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 text-center">
+      <h1 class="se-section-title mb-3">About {{ SHOP_NAME }}</h1>
+      <p class="lead text-secondary">{{ SHOP_TAGLINE }}.</p>
+    </div>
+  </div>
+  <div class="row g-4 mt-4">
+    <div class="col-md-4">
+      <div class="se-perk-card h-100">
+        <i class="bi bi-box-seam"></i>
+        <h5>Curated catalog</h5>
+        <p class="text-secondary small mb-0">Every product is checked for quality before it reaches our shelves - online or offline.</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="se-perk-card h-100">
+        <i class="bi bi-shield-lock"></i>
+        <h5>Secure by design</h5>
+        <p class="text-secondary small mb-0">Payments are verified server-side. We never store card details and never sell your data.</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="se-perk-card h-100">
+        <i class="bi bi-chat-heart"></i>
+        <h5>People-first support</h5>
+        <p class="text-secondary small mb-0">Real humans answer within one business day. <a href="{% url 'core:contact' %}">Get in touch</a>.</p>
+      </div>
+    </div>
+  </div>
+  <div class="row mt-5">
+    <div class="col-lg-8 mx-auto text-secondary">
+      <p>{{ SHOP_NAME }} started with a simple idea: shopping online should be as joyful and dependable as
+        buying from a trusted neighbourhood store. Since day one we have focused on three things - an honest
+        catalog, transparent pricing and lightning-fast fulfilment.</p>
+      <p>Today our team ships thousands of orders every month across electronics, fashion, home goods and
+        more. Every order is packed with care and covered by our 30-day no-questions-asked return policy.</p>
+      <p>Thank you for shopping with us - it genuinely means the world.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

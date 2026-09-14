@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Terms of service{% endblock %}
+{% block content %}
+<section class="container py-5 legal-page">
+  <h1 class="se-section-title mb-4">Terms of service</h1>
+  <div class="text-secondary">
+    <p><em>Last updated: {% now "F j, Y" %}</em></p>
+    <h5>1. Acceptance</h5>
+    <p>By accessing {{ SHOP_NAME }} ("the store"), you agree to these terms. If you do not agree, please do not use the store.</p>
+    <h5>2. Accounts</h5>
+    <p>You are responsible for keeping your account credentials confidential. Notify us immediately of any unauthorised use.</p>
+    <h5>3. Orders &amp; pricing</h5>
+    <p>All orders are subject to acceptance and availability. Prices, discounts and totals are calculated on our servers and may change without notice; the total shown at checkout is the amount you will be charged.</p>
+    <h5>4. Payments</h5>
+    <p>We accept the payment methods listed at checkout through third-party processors. We never store full card details.</p>
+    <h5>5. Shipping &amp; returns</h5>
+    <p>Delivery estimates are provided in good faith. Items may be returned within 30 days of delivery in original condition unless marked non-returnable.</p>
+    <h5>6. Liability</h5>
+    <p>To the maximum extent permitted by law, {{ SHOP_NAME }} is not liable for indirect or consequential damages arising from the use of the store.</p>
+    <h5>7. Contact</h5>
+    <p>Questions about these terms? <a href="{% url 'core:contact' %}">Contact us</a>.</p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Contact{% endblock %}
+{% block content %}
+<section class="container py-5">
+  <div class="row g-5">
+    <div class="col-lg-5">
+      <h1 class="se-section-title">Get in touch</h1>
+      <p class="text-secondary">Questions about an order, a product or anything else?
+        Send us a message - we answer within one business day.</p>
+      <ul class="list-unstyled se-contact-info">
+        <li><i class="bi bi-envelope"></i> hello@stareaststore.example.com</li>
+        <li><i class="bi bi-telephone"></i> +1 (555) 010-2040</li>
+        <li><i class="bi bi-geo-alt"></i> 42 Harbour Lane, Suite 7, Portside, CA 94000</li>
+        <li><i class="bi bi-clock"></i> Mon–Fri, 9:00–18:00</li>
+      </ul>
+    </div>
+    <div class="col-lg-7">
+      <form method="post" action="{% url 'core:contact' %}" class="card se-form-card" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="id_name" class="form-label">Your name</label>
+              <input type="text" name="name" id="id_name" class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                     value="{{ form.name.value|default:'' }}" maxlength="120" required>
+              {% for error in form.name.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label for="id_email" class="form-label">Email</label>
+              <input type="email" name="email" id="id_email" class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                     value="{{ form.email.value|default:'' }}" required>
+              {% for error in form.email.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label for="id_subject" class="form-label">Subject</label>
+              <input type="text" name="subject" id="id_subject" class="form-control {% if form.subject.errors %}is-invalid{% endif %}"
+                     value="{{ form.subject.value|default:'' }}" maxlength="200" required>
+              {% for error in form.subject.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label for="id_message" class="form-label">Message</label>
+              <textarea name="message" id="id_message" rows="5" class="form-control {% if form.message.errors %}is-invalid{% endif %}"
+                        required>{{ form.message.value|default:'' }}</textarea>
+              {% for error in form.message.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            {{ form.website }}
+          </div>
+          <button type="submit" class="btn se-btn-primary mt-4"><i class="bi bi-send me-2"></i>Send message</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

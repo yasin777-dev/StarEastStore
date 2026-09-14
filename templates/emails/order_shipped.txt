@@ -1,0 +1,9 @@
+Hi {{ order.shipping_full_name }},
+
+Good news - your order {{ order.order_number }} is on its way!
+
+{{ order.shipping_address_one_line }}
+
+You can follow its status in your account at any time.
+
+- The StarEastStore team

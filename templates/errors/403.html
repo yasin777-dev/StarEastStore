@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Access denied{% endblock %}
+{% block content %}
+<section class="container py-5 text-center error-page">
+  <div class="display-1 fw-bold se-text-gradient">403</div>
+  <h2 class="h4 mb-3"><i class="bi bi-slash-circle me-2"></i>Access denied</h2>
+  <p class="text-secondary mb-4">You don't have permission to view this page.</p>
+  <div class="d-flex gap-2 justify-content-center">
+    <a href="{% url 'core:home' %}" class="btn se-btn-primary"><i class="bi bi-house me-1"></i>Home</a>
+    <a href="{% url 'products:list' %}" class="btn se-btn-outline"><i class="bi bi-bag me-1"></i>Continue shopping</a>
+  </div>
+</section>
+{% endblock %}

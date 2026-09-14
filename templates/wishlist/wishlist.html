@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}My wishlist{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <h1 class="se-section-title mb-4"><i class="bi bi-heart me-2"></i>My wishlist</h1>
+  {% if items %}
+  <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-4">
+    {% for item in items %}
+    <div class="col">
+      {% with product=item.product %}
+        {% include 'partials/product_card.html' with show_wishlist=False %}
+        <div class="d-flex gap-2 mt-2">
+          <form method="post" action="{% url 'wishlist:move_to_cart' item.pk %}" class="flex-grow-1">
+            {% csrf_token %}
+            <button type="submit" class="btn se-btn-primary btn-sm w-100"><i class="bi bi-bag-plus me-1"></i>Move to cart</button>
+          </form>
+          <form method="post" action="{% url 'wishlist:remove' item.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Remove {{ item.product.name }} from wishlist"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      {% endwith %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="se-empty-state">
+    <i class="bi bi-heartbreak"></i>
+    <h5>Your wishlist is empty</h5>
+    <p class="text-secondary">Tap the ♥ on any product to save it for later.</p>
+    <a href="{% url 'products:list' %}" class="btn se-btn-primary">Discover products</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

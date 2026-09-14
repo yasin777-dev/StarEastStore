@@ -1,0 +1,11 @@
+Hi {{ user.first_name|default:user.username }},
+
+Welcome to StarEastStore! Your account ({{ user.email }}) is ready.
+
+Here's what you can do right away:
+* Browse the catalog: everything is organised by category and brand
+* Save products to your wishlist for later
+* Enjoy free shipping on orders over $75
+
+Happy shopping!
+- The StarEastStore team

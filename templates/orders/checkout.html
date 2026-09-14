@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Checkout{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <h1 class="se-section-title mb-4"><i class="bi bi-credit-card-2-front me-2"></i>Checkout</h1>
+  <form method="post" action="{% url 'orders:checkout' %}" id="checkoutForm" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <!-- 1. Shipping address -->
+        <div class="card se-form-card mb-4">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-3"><span class="se-step-num">1</span> Shipping address</h2>
+            {% if addresses %}
+            <div class="row g-3">
+              {% for address in addresses %}
+              <div class="col-md-6">
+                <label class="se-address-card {% if form.address_id.value|stringformat:'s' == address.pk|stringformat:'s' %}selected{% endif %}">
+                  <input type="radio" name="address_id" value="{{ address.pk }}" class="form-check-input"
+                         {% if form.address_id.value|stringformat:'s' == address.pk|stringformat:'s' %}checked{% endif %}>
+                  <span class="fw-semibold">{{ address.full_name }}</span>
+                  <small class="text-secondary d-block">{{ address.address_line_1 }}{% if address.address_line_2 %}, {{ address.address_line_2 }}{% endif %}</small>
+                  <small class="text-secondary d-block">{{ address.city }}, {{ address.state }} {{ address.postal_code }}, {{ address.country }}</small>
+                  <small class="text-secondary d-block">{{ address.phone }}</small>
+                  {% if address.is_default %}<span class="badge se-badge-featured mt-1">Default</span>{% endif %}
+                </label>
+              </div>
+              {% endfor %}
+              <div class="col-md-6">
+                <a href="{% url 'accounts:address_create' %}?next={% url 'orders:checkout' %}" class="se-address-card se-address-add h-100">
+                  <i class="bi bi-plus-circle fs-4"></i>
+                  <span class="fw-semibold">Add a new address</span>
+                </a>
+              </div>
+            </div>
+            {% if form.address_id.errors %}<div class="text-danger small mt-2">{{ form.address_id.errors.0 }}</div>{% endif %}
+            {% else %}
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-geo-alt me-2"></i>You need a shipping address to continue.
+              <a href="{% url 'accounts:address_create' %}?next={% url 'orders:checkout' %}" class="fw-semibold">Add one now</a>.
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 2. Shipping method -->
+        <div class="card se-form-card mb-4">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-3"><span class="se-step-num">2</span> Shipping method</h2>
+            <div class="se-method-list">
+              {% for choice in form.shipping_method %}
+              <label class="se-method-item">
+                {{ choice.tag }}
+                <span class="se-method-main">{{ choice.choice_label }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <p class="text-secondary small mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Shipping is free on discounted subtotals over {{ CURRENCY }}{{ FREE_SHIPPING_THRESHOLD|floatformat:0 }}.</p>
+          </div>
+        </div>
+
+        <!-- 3. Payment method -->
+        <div class="card se-form-card mb-4">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-3"><span class="se-step-num">3</span> Payment method</h2>
+            <div class="se-method-list">
+              {% for choice in form.payment_method %}
+              <label class="se-method-item">
+                {{ choice.tag }}
+                <span class="se-method-main">{{ choice.choice_label }}</span>
+              </label>
+              {% empty %}
+              <div class="alert alert-warning mb-0">No payment methods are configured. Please contact support.</div>
+              {% endfor %}
+            </div>
+            <p class="text-secondary small mb-0 mt-2"><i class="bi bi-shield-lock me-1"></i>Payments are verified on the server before your order is confirmed.</p>
+          </div>
+        </div>
+
+        <!-- 4. Note -->
+        <div class="card se-form-card mb-4">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-3"><span class="se-step-num">4</span> Order note <span class="text-secondary fw-normal small">(optional)</span></h2>
+            {{ form.customer_note }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="col-lg-4">
+        <div class="card se-summary-card sticky-top se-sticky-offset">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-3">Your order</h2>
+            <ul class="list-unstyled se-checkout-items mb-3">
+              {% for line in lines %}
+              <li class="d-flex justify-content-between gap-2 mb-2">
+                <span class="small">{{ line.quantity }} × {{ line.product.name }}{% if line.variant %} <span class="text-secondary">({{ line.variant.display_name }})</span>{% endif %}</span>
+                <span class="small text-nowrap">{{ CURRENCY }}{{ line.line_total|floatformat:2 }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            <hr>
+            <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Subtotal</span><span>{{ CURRENCY }}{{ subtotal|floatformat:2 }}</span></div>
+            {% if discount %}
+            <div class="d-flex justify-content-between mb-2 text-success"><span>Coupon {{ coupon_code }}</span><span>-{{ CURRENCY }}{{ discount|floatformat:2 }}</span></div>
+            {% endif %}
+            <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Shipping</span><span>{% if shipping_fee %}{{ CURRENCY }}{{ shipping_fee|floatformat:2 }}{% else %}Select method{% endif %}</span></div>
+            <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Tax</span><span>{{ CURRENCY }}{{ tax|floatformat:2 }}</span></div>
+            <hr>
+            <div class="d-flex justify-content-between fs-5 fw-bold mb-3"><span>Total</span><span>{{ CURRENCY }}{{ grand_total|floatformat:2 }}</span></div>
+
+            <label class="form-label fw-semibold" for="id_coupon_code"><i class="bi bi-ticket-perforated me-1"></i>Coupon code</label>
+            <div class="input-group mb-1">
+              {{ form.coupon_code }}
+              <button type="submit" name="action" value="apply_coupon" class="btn se-btn-outline">Apply</button>
+            </div>
+            {% if form.coupon_code.errors %}<div class="text-danger small">{{ form.coupon_code.errors.0 }}</div>{% endif %}
+
+            <button type="submit" name="action" value="place_order" class="btn se-btn-primary w-100 mt-3"
+                    {% if not addresses %}disabled{% endif %}>
+              <i class="bi bi-lock-fill me-2"></i>Place order · {{ CURRENCY }}{{ grand_total|floatformat:2 }}
+            </button>
+            <p class="text-secondary small text-center mt-2 mb-0">By placing your order you agree to our
+              <a href="{% url 'core:terms' %}">terms</a>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</section>
+{% endblock %}

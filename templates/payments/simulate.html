@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Demo payment{% endblock %}
+{% block content %}
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card se-form-card">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <div class="se-success-icon sm mb-2" style="background:#eef2ff;color:#4f46e5;"><i class="bi bi-credit-card-2-front"></i></div>
+            <h1 class="h4 fw-bold mb-1">Demo gateway checkout</h1>
+            <p class="text-secondary small mb-0">This simulated gateway lets you exercise the full payment
+              flow (initiation → server-side verification → confirmation) without real money.</p>
+          </div>
+          <div class="d-flex justify-content-between align-items-center p-3 rounded mb-4" style="background:var(--se-soft);">
+            <div>
+              <small class="text-secondary d-block">Order</small>
+              <span class="fw-semibold">{{ order.order_number }}</span>
+            </div>
+            <div class="text-end">
+              <small class="text-secondary d-block">Amount due</small>
+              <span class="fw-bold fs-4">{{ CURRENCY }}{{ txn.amount|floatformat:2 }}</span>
+            </div>
+          </div>
+          <form method="post" action="{% url 'payments:simulate_process' txn.reference %}">
+            {% csrf_token %}
+            <div class="d-grid gap-2">
+              <button type="submit" name="outcome" value="success" class="btn se-btn-primary btn-lg">
+                <i class="bi bi-shield-check me-2"></i>Pay {{ CURRENCY }}{{ txn.amount|floatformat:2 }}
+              </button>
+              <button type="submit" name="outcome" value="failure" class="btn btn-outline-danger">
+                <i class="bi bi-x-octagon me-2"></i>Simulate a failed payment
+              </button>
+              <button type="submit" name="outcome" value="cancel" class="btn btn-link text-secondary">
+                Cancel and return to order
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

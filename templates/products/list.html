@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}
+  {% if category %}{{ category.name }}{% elif brand %}{{ brand.name }}{% elif sale_mode %}Sale{% elif filters.q %}Search: {{ filters.q }}{% else %}Shop{% endif %}
+{% endblock %}
+{% block content %}
+<section class="container py-4">
+  <nav aria-label="breadcrumb" class="small">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:home' %}">Home</a></li>
+      {% if category %}<li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+      {% elif brand %}<li class="breadcrumb-item active" aria-current="page">Brand: {{ brand.name }}</li>
+      {% elif sale_mode %}<li class="breadcrumb-item active" aria-current="page">Sale</li>
+      {% else %}<li class="breadcrumb-item active" aria-current="page">Shop</li>{% endif %}
+    </ol>
+  </nav>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+    <div>
+      <h1 class="se-section-title mb-1">
+        {% if category %}{{ category.name }}{% elif brand %}{{ brand.name }}{% elif sale_mode %}🔥 Sale items{% elif filters.q %}Results for "{{ filters.q }}"{% else %}All products{% endif %}
+      </h1>
+      <p class="text-secondary mb-0">{{ page_obj.paginator.count }} product{{ page_obj.paginator.count|pluralize }}</p>
+    </div>
+    <form method="get" class="d-flex align-items-center gap-2">
+      {% for key, value in request.GET.items %}{% if key != 'sort' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+      <label for="sortSelect" class="text-secondary small text-nowrap">Sort by</label>
+      <select id="sortSelect" name="sort" class="form-select form-select-sm se-sort-select" onchange="this.form.submit()">
+        <option value="">Relevance</option>
+        {% for key, choice in sort_choices.items %}
+          <option value="{{ key }}" {% if filters.sort == key %}selected{% endif %}>{{ choice.0 }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="row g-4">
+    <!-- Filters sidebar -->
+    <aside class="col-lg-3">
+      <form method="get" class="se-filter-card">
+        {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+        {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+
+        <div class="mb-4">
+          <h6 class="se-filter-title"><i class="bi bi-grid me-1"></i>Category</h6>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="category" value="" id="cat-all" {% if not filters.category %}checked{% endif %}>
+            <label class="form-check-label" for="cat-all">All categories</label>
+          </div>
+          {% for cat in categories %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="category" value="{{ cat.slug }}" id="cat-{{ cat.pk }}"
+                   {% if filters.category == cat.slug or category.slug == cat.slug %}checked{% endif %}>
+            <label class="form-check-label" for="cat-{{ cat.pk }}">{{ cat.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-4">
+          <h6 class="se-filter-title"><i class="bi bi-award me-1"></i>Brand</h6>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="brand" value="" id="brand-all" {% if not filters.brand %}checked{% endif %}>
+            <label class="form-check-label" for="brand-all">All brands</label>
+          </div>
+          {% for b in brands %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="brand" value="{{ b.slug }}" id="brand-{{ b.pk }}"
+                   {% if filters.brand == b.slug or brand.slug == b.slug %}checked{% endif %}>
+            <label class="form-check-label" for="brand-{{ b.pk }}">{{ b.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-4">
+          <h6 class="se-filter-title"><i class="bi bi-currency-dollar me-1"></i>Price</h6>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="number" step="0.01" min="0" name="min_price" class="form-control form-control-sm"
+                   placeholder="Min" value="{{ filters.min_price|default_if_none:'' }}">
+            <span class="text-secondary">–</span>
+            <input type="number" step="0.01" min="0" name="max_price" class="form-control form-control-sm"
+                   placeholder="Max" value="{{ filters.max_price|default_if_none:'' }}">
+          </div>
+        </div>
+
+        <div class="form-check form-switch mb-4">
+          <input class="form-check-input" type="checkbox" role="switch" name="in_stock" value="1" id="inStockSwitch"
+                 {% if filters.in_stock %}checked{% endif %}>
+          <label class="form-check-label" for="inStockSwitch"><i class="bi bi-check-square me-1"></i>In stock only</label>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn se-btn-primary btn-sm">Apply filters</button>
+          <a href="{% if category %}{{ category.get_absolute_url }}{% elif brand %}{{ brand.get_absolute_url }}{% elif sale_mode %}{% url 'products:sale' %}{% else %}{% url 'products:list' %}{% endif %}"
+             class="btn btn-outline-secondary btn-sm">Reset</a>
+        </div>
+      </form>
+    </aside>
+
+    <!-- Product grid -->
+    <div class="col-lg-9">
+      {% if products %}
+        <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-xl-3">
+          {% for product in products %}<div class="col">{% include 'partials/product_card.html' %}</div>{% endfor %}
+        </div>
+        {% include 'partials/pagination.html' %}
+      {% else %}
+        <div class="se-empty-state">
+          <i class="bi bi-emoji-frown"></i>
+          <h5>No products found</h5>
+          <p class="text-secondary">Try adjusting your search or filters.</p>
+          <a href="{% url 'products:list' %}" class="btn se-btn-outline btn-sm">Browse all products</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

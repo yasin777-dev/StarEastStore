@@ -1,0 +1,1 @@
+{% autoescape off %}Welcome to the store, {{ user.first_name|default:user.username }}!{% endautoescape %}

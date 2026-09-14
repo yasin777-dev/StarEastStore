@@ -1,0 +1,85 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .se-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .se-stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 18px; }
+  .se-stat-card .value { font-size: 26px; font-weight: 700; color: #111827; }
+  .se-stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; }
+  .se-dash-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 18px; margin-bottom: 20px; }
+  .se-dash-section h3 { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+  .se-dash-section table { width: 100%; font-size: 13px; }
+  .se-dash-section td, .se-dash-section th { padding: 6px 4px; border-bottom: 1px solid #f3f4f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="se-stat-grid">
+    <div class="se-stat-card"><div class="value">${{ total_sales|floatformat:2 }}</div><div class="label">Total sales</div></div>
+    <div class="se-stat-card"><div class="value">{{ orders_count }}</div><div class="label">Orders ({{ pending_orders }} pending)</div></div>
+    <div class="se-stat-card"><div class="value">{{ customers_count }}</div><div class="label">Customers</div></div>
+    <div class="se-stat-card"><div class="value">{{ products_count }}</div><div class="label">Products</div></div>
+    <div class="se-stat-card"><div class="value" {% if low_stock_count %}style="color:#b45309"{% endif %}>{{ low_stock_count }}</div><div class="label">Low-stock products</div></div>
+  </div>
+
+  <div class="se-dash-section">
+    <h3>Recent orders</h3>
+    {% if recent_orders %}
+    <table>
+      <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th style="text-align:right">Total</th><th>Placed</th></tr></thead>
+      <tbody>
+        {% for order in recent_orders %}
+        <tr>
+          <td><a href="{% url 'admin:orders_order_change' order.pk %}">{{ order.order_number }}</a></td>
+          <td>{{ order.user.email|truncatechars:28 }}</td>
+          <td>{{ order.get_status_display }}</td>
+          <td>{{ order.get_payment_status_display }}</td>
+          <td style="text-align:right">${{ order.total|floatformat:2 }}</td>
+          <td>{{ order.created_at|date:"M j, H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p style="margin:0;color:#6b7280;">No orders yet.</p>{% endif %}
+  </div>
+
+  <div class="se-dash-section">
+    <h3>Low-stock alerts</h3>
+    {% if low_stock_products %}
+    <table>
+      <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th style="text-align:right">Stock</th><th style="text-align:right">Threshold</th></tr></thead>
+      <tbody>
+        {% for product in low_stock_products %}
+        <tr>
+          <td><a href="{% url 'admin:products_product_change' product.pk %}">{{ product.name|truncatechars:40 }}</a></td>
+          <td>{{ product.sku }}</td>
+          <td>{{ product.category.name|default:'—' }}</td>
+          <td style="text-align:right;color:#b45309;font-weight:600">{{ product.stock_quantity }}</td>
+          <td style="text-align:right">{{ product.low_stock_threshold }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p style="margin:0;color:#6b7280;">All products are comfortably stocked.</p>{% endif %}
+  </div>
+
+  <div class="dashboard-module">
+    {% for app in app_list %}
+    <div class="app-{{ app.app_label }} module">
+      <table>
+        <caption><a href="{{ app.app_url }}" class="section">{{ app.name }}</a></caption>
+        {% for model in app.models %}
+        <tr class="model-{{ model.object_name|lower }}">
+          {% if model.admin_url %}<th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>{% else %}<th scope="row">{{ model.name }}</th>{% endif %}
+          {% if model.add_url %}<td><a href="{{ model.add_url }}" class="addlink">{% translate 'Add' %}</a></td>{% else %}<td>&nbsp;</td>{% endif %}
+          {% if model.admin_url %}{% if model.view_only %}<td><a href="{{ model.admin_url }}" class="viewlink">{% translate 'View' %}</a></td>{% else %}<td><a href="{{ model.admin_url }}" class="changelink">{% translate 'Change' %}</a></td>{% endif %}{% else %}<td>&nbsp;</td>{% endif %}
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

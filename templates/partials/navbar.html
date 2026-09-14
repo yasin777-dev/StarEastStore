@@ -1,0 +1,72 @@
+{% load static %}
+<nav class="navbar navbar-expand-lg se-navbar sticky-top" aria-label="Main navigation">
+  <div class="container">
+    <button class="navbar-toggler border-0 order-lg-3 me-1" type="button"
+            data-bs-toggle="collapse" data-bs-target="#mainNav"
+            aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <a class="navbar-brand d-flex align-items-center gap-2 order-lg-1" href="{% url 'core:home' %}">
+      <span class="se-brand-mark"><i class="bi bi-stars"></i></span>
+      <span class="se-brand-text">{{ SHOP_NAME }}</span>
+    </a>
+
+    <div class="order-lg-2 d-flex align-items-center gap-2 ms-auto">
+      <a class="btn se-icon-btn position-relative" href="{% url 'wishlist:detail' %}" aria-label="Wishlist">
+        <i class="bi bi-heart"></i>
+      </a>
+      <a class="btn se-icon-btn position-relative" href="{% url 'cart:detail' %}" aria-label="Shopping cart">
+        <i class="bi bi-bag"></i>
+        <span class="badge rounded-pill se-cart-badge {% if not cart_item_count %}d-none{% endif %}"
+              data-cart-count>{{ cart_item_count|default:0 }}</span>
+      </a>
+      <div class="dropdown">
+        <button class="btn se-icon-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+          <i class="bi bi-person-circle"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end se-dropdown">
+          {% if user.is_authenticated %}
+            <li><h6 class="dropdown-header">{{ user.email }}</h6></li>
+            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person me-2"></i>My profile</a></li>
+            <li><a class="dropdown-item" href="{% url 'orders:list' %}"><i class="bi bi-box-seam me-2"></i>My orders</a></li>
+            <li><a class="dropdown-item" href="{% url 'accounts:address_list' %}"><i class="bi bi-geo-alt me-2"></i>Addresses</a></li>
+            {% if user.is_staff %}
+              <li><a class="dropdown-item" href="/admin/"><i class="bi bi-speedometer2 me-2"></i>Admin panel</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{% url 'accounts:logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
+              </form>
+            </li>
+          {% else %}
+            <li><a class="dropdown-item" href="{% url 'accounts:login' %}"><i class="bi bi-box-arrow-in-right me-2"></i>Log in</a></li>
+            <li><a class="dropdown-item" href="{% url 'accounts:register' %}"><i class="bi bi-person-plus me-2"></i>Create account</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="collapse navbar-collapse order-lg-4" id="mainNav">
+      <ul class="navbar-nav se-nav-links mx-lg-2">
+        <li class="nav-item"><a class="nav-link" href="{% url 'core:home' %}">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'products:list' %}">Shop</a></li>
+        <li class="nav-item"><a class="nav-link text-danger fw-semibold" href="{% url 'products:sale' %}">Sale</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'core:about' %}">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'core:contact' %}">Contact</a></li>
+      </ul>
+      <form class="d-flex se-search-form ms-lg-auto" role="search"
+            action="{% url 'products:search' %}" method="get">
+        <div class="input-group">
+          <input class="form-control" type="search" name="q" value="{{ request.GET.q|default:'' }}"
+                 placeholder="Search products, brands…" aria-label="Search products">
+          <button class="btn se-btn-primary" type="submit" aria-label="Search">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</nav>
