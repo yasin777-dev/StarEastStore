@@ -9,16 +9,16 @@
           <div class="text-center mb-4">
             <div class="se-auth-icon"><i class="bi bi-box-arrow-in-right"></i></div>
             <h1 class="h4 fw-bold mb-1">Welcome back</h1>
-            <p class="text-secondary small mb-0">Log in with your email address.</p>
+            <p class="text-secondary small mb-0">Log in with your email address or username.</p>
           </div>
           {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
           <form method="post" action="{% url 'accounts:login' %}" novalidate>
             {% csrf_token %}
             {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
             <div class="mb-3">
-              <label for="id_username" class="form-label">Email address</label>
-              <input type="email" name="username" id="id_username" class="form-control {% if form.username.errors %}is-invalid{% endif %}"
-                     value="{{ form.username.value|default:'' }}" autofocus required autocomplete="email">
+              <label for="id_username" class="form-label">Email or Username</label>
+              <input type="text" name="username" id="id_username" class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                     value="{{ form.username.value|default:'' }}" autofocus required autocomplete="username">
               {% for error in form.username.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
             </div>
             <div class="mb-3">
