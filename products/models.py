@@ -199,10 +199,35 @@ class Product(SlugModel):
 
     # -- images ------------------------------------------------------------
     def primary_image(self):
-        """Return the primary ProductImage or None (never raises)."""
-        images = list(self.images.all()) if self.pk else []
+        """Return the primary ProductImage or None (never raises).
+
+        Prefers images whose file actually exists on disk.  On platforms with
+        an ephemeral filesystem (Render free tier, Heroku, etc.) the database
+        can reference image rows whose files were wiped on a later deploy; we
+        skip those rows so templates fall through to their placeholder UI
+        instead of emitting a broken <img> tag.
+        """
+        if not self.pk:
+            return None
+        images = list(self.images.all())
         if not images:
             return None
+
+        def _exists(img):
+            try:
+                return bool(img.image) and img.image.storage.exists(img.image.name)
+            except Exception:
+                return False
+
+        # First try images that still exist on disk.
+        for image in images:
+            if image.is_primary and _exists(image):
+                return image
+        for image in images:
+            if not image.is_primary and _exists(image):
+                return image
+        # Fall back to any DB row (the media serving view will serve a
+        # placeholder for the missing file so the <img> tag still resolves).
         for image in images:
             if image.is_primary:
                 return image
