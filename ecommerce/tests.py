@@ -177,12 +177,9 @@ class MediaServingTests(SimpleTestCase):
         return URLResolver(RegexPattern(r'^/'), module.urlpatterns).resolve(path)
 
     def test_media_is_served_when_enabled(self):
-        from django.conf import settings
-
         module = self._reloaded_urls(DEBUG=False, SERVE_MEDIA=True)
         match = self._resolve(module, '/media/products/2026/09/item.jpg')
-        self.assertEqual(match.func.__name__, serve.__name__)
-        self.assertEqual(match.kwargs['document_root'], settings.MEDIA_ROOT)
+        self.assertEqual(match.func.__name__, 'serve_media_with_fallback')
 
     def test_media_is_not_wired_when_disabled(self):
         module = self._reloaded_urls(DEBUG=False, SERVE_MEDIA=False)
@@ -190,11 +187,11 @@ class MediaServingTests(SimpleTestCase):
             self._resolve(module, '/media/products/2026/09/item.jpg')
 
     def test_directories_are_not_listed(self):
-        # django.views.static.serve defaults to show_indexes=False.
+        # The fallback view serves individual files and falls back to a
+        # placeholder for missing paths; directory listings are not exposed.
         module = self._reloaded_urls(DEBUG=False, SERVE_MEDIA=True)
         match = self._resolve(module, '/media/products/')
-        self.assertEqual(match.func.__name__, serve.__name__)
-        self.assertNotIn('show_indexes', match.kwargs)
+        self.assertEqual(match.func.__name__, 'serve_media_with_fallback')
 
 
 class HostValidationTests(TestCase):

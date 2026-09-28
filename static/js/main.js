@@ -61,4 +61,36 @@
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     });
   });
+
+  // Global image-error fallback: any product/profile image that fails to load
+  // (e.g. missing media file after a Render redeploy that wiped /media/) is
+  // swapped to the bundled placeholder SVG so users never see a broken icon.
+  var PLACEHOLDER_SRC = (window.SE_STATIC_URL || '/static/') + 'img/placeholder.svg';
+  function installImgFallback(root) {
+    (root || document).querySelectorAll('img').forEach(function (img) {
+      if (img.dataset.seFallbackInstalled === '1') return;
+      img.dataset.seFallbackInstalled = '1';
+      img.addEventListener('error', function onErr() {
+        if (img.getAttribute('src') === PLACEHOLDER_SRC) return;
+        img.removeEventListener('error', onErr);
+        img.setAttribute('src', PLACEHOLDER_SRC);
+      });
+      // If the image already errored before this handler was attached
+      // (e.g. cached 404), swap it now.
+      if (img.complete && img.naturalWidth === 0) {
+        img.setAttribute('src', PLACEHOLDER_SRC);
+      }
+    });
+  }
+  installImgFallback(document);
+  // Also cover images injected dynamically (quick-add cart refresh, etc.).
+  if (window.MutationObserver) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        m.addedNodes.forEach(function (node) {
+          if (node && node.querySelectorAll) installImgFallback(node);
+        });
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();
