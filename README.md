@@ -358,6 +358,10 @@ service's ephemeral disk and is wiped on every deploy.
 | `python manage.py seed_data` | Demo catalog, users, coupons, orders (`--force` to re-run) |
 | `python manage.py migrate` | Apply migrations |
 | `python manage.py test` | Run the test suite |
+| `python scripts/build_catalog_pdf.py` | Regenerate `docs/StarEastStore_Product_Catalog.pdf` from the seed catalog (needs `pip install reportlab`) |
+
+Product photos used by `seed_data` live in `fixtures/product_images/<SKU>.jpg`; products
+without a photo get a generated placeholder tile.
 
 ## License
 

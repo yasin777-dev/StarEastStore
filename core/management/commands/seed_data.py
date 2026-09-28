@@ -43,6 +43,21 @@ ICONS = {
     'Accessories': '🎒',
 }
 
+# Product photos checked into the repo, named after the product SKU
+# (e.g. fixtures/product_images/SE-ELEC-001.jpg). Used when present; the
+# gradient tile below is only a fallback.
+FIXTURE_IMAGE_DIR = os.path.join(settings.BASE_DIR, 'fixtures', 'product_images')
+
+
+def load_fixture_image(sku: str) -> ContentFile | None:
+    """Return the bundled photo for ``sku`` as a ContentFile, or None."""
+    for extension in ('jpg', 'jpeg', 'png', 'webp'):
+        path = os.path.join(FIXTURE_IMAGE_DIR, f'{sku}.{extension}')
+        if os.path.exists(path):
+            with open(path, 'rb') as handle:
+                return ContentFile(handle.read(), name=f'{sku}.{extension}')
+    return None
+
 
 def render_product_image(product_name: str, category: str, index: int, size: int = 900) -> ContentFile:
     """Render a clean gradient tile with the product emoji/initials."""
@@ -98,54 +113,120 @@ class Command(BaseCommand):
 
     BRANDS = ['NovaTech', 'Aurora', 'UrbanEdge', 'PureGlow', 'SummitPro', 'LumiHome']
 
+    # (name, short description, price, sale price or None)
+    # SKUs are derived from the category and position, so keep the order stable.
     PRODUCTS = {
         'Electronics': [
-            ('NovaBook Air 14', 'Ultralight laptop with a 14-inch display and all-day battery.'),
-            ('PulsePods Pro', 'Wireless earbuds with active noise cancellation.'),
-            ('VoltCharge 65W GaN', 'Pocket-sized fast charger for phone and laptop.'),
-            ('Lumina 4K Monitor', '27-inch 4K IPS monitor with USB-C.'),
+            ('Stellar Slim 13 Laptop',
+             'Featherlight 13-inch laptop with a vivid OLED display and 18-hour battery.',
+             '1099.00', '949.00'),
+            ('EchoBuds ANC',
+             'True-wireless earbuds with hybrid noise cancellation and a 30-hour charging case.',
+             '149.00', None),
+            ('ZapCube 100W GaN Charger',
+             'Travel-sized 3-port GaN charger that powers laptop, tablet and phone at once.',
+             '59.99', '49.99'),
+            ('ClearView 27 UHD Display',
+             '27-inch 4K IPS display with 65W USB-C power delivery and slim bezels.',
+             '429.00', None),
         ],
         'Fashion': [
-            ('Aurora Oversized Hoodie', 'Heavyweight cotton-blend hoodie, relaxed fit.'),
-            ('UrbanEdge Slim Chinos', 'Stretch chinos that survive Monday to Friday.'),
-            ('SummitPro Running Tee', 'Moisture-wicking tee for serious miles.'),
-            ('PureGlow Summer Dress', 'Breezy midi dress in floral print.'),
+            ('Aurora Cloud Fleece Hoodie',
+             'Brushed-fleece hoodie with a boxy fit and kangaroo pocket.',
+             '64.99', None),
+            ('UrbanEdge Flex Tapered Trousers',
+             'Four-way stretch trousers with a tapered leg for work or weekend.',
+             '74.99', '59.99'),
+            ('SummitPro AeroLite Training Tee',
+             'Ultra-light performance tee with mesh ventilation panels.',
+             '34.99', None),
+            ('PureGlow Linen Wrap Dress',
+             'Breathable linen wrap dress with a flattering tie waist.',
+             '89.99', None),
         ],
         'Home & Kitchen': [
-            ('LumiHome Smart Lamp', 'Voice-controlled lamp with 16M colors.'),
-            ('ChefSteel Knife Set', '5-piece German steel knife set.'),
-            ('BrewMaster Pour-Over Kit', 'Everything for a perfect morning cup.'),
-            ('Terra Ceramic Vase', 'Hand-glazed stoneware vase, 24 cm.'),
+            ('LumiHome Halo Ambient Lamp',
+             'App-controlled ambient lamp with tunable white and 16 million colours.',
+             '79.99', '64.99'),
+            ('ForgeLine Chef Knife Trio',
+             '3-piece forged knife set: chef, santoku and paring, with walnut handles.',
+             '119.00', None),
+            ('Daybreak Coffee Dripper Set',
+             'Ceramic dripper, glass server and 40 filters for slow-brew mornings.',
+             '44.99', None),
+            ('Dune Textured Stoneware Vase',
+             'Hand-thrown stoneware vase with a matte sand glaze, 28 cm.',
+             '39.99', None),
         ],
         'Beauty': [
-            ('PureGlow Vitamin C Serum', 'Brightening serum with 15% vitamin C.'),
-            ('Aurora Matte Lipstick', 'Long-wear matte lipstick, shade 07 Rosewood.'),
-            ('SilkRepair Hair Mask', 'Weekly repair mask for dry hair.'),
-            ('CloudSkin Moisturizer', 'Fragrance-free daily moisturizer 50ml.'),
+            ('PureGlow Radiance Booster Serum',
+             'Lightweight 20% vitamin C and ferulic acid serum for a brighter complexion.',
+             '42.00', None),
+            ('Aurora Velvet Lip Colour',
+             'Weightless velvet-matte lipstick in shade 12 Terracotta.',
+             '24.00', '19.00'),
+            ('KeraNourish Deep Repair Mask',
+             'Keratin-infused weekly mask for damaged, colour-treated hair.',
+             '28.50', None),
+            ('DewDrop Barrier Cream',
+             'Ceramide-rich daily moisturiser for sensitive skin, 50ml.',
+             '32.00', None),
         ],
         'Sports': [
-            ('SummitPro Trail Backpack', '22L pack with rain cover.'),
-            ('IronGrip Yoga Mat', '6mm non-slip mat with alignment lines.'),
-            ('Velocity Jump Rope', 'Ball-bearing speed rope.'),
-            ('PeakDumbbell Set', 'Adjustable 2-20kg dumbbell pair.'),
+            ('SummitPro Ridge 25L Daypack',
+             'Ventilated-back 25L daypack with hydration sleeve and rain cover.',
+             '89.00', '74.00'),
+            ('GripCore Pro Yoga Mat',
+             '5mm cork-topped mat with a natural rubber base and carry strap.',
+             '54.99', None),
+            ('SwiftSpin Speed Rope',
+             'Weighted-handle speed rope with dual ball bearings.',
+             '19.99', None),
+            ('ApexLift Adjustable Dumbbells',
+             'Dial-select 2.5-24kg adjustable dumbbell pair with stand.',
+             '299.00', None),
         ],
         'Books': [
-            ('The Silent Meridian', 'A sweeping historical mystery novel.'),
-            ('Atomic Focus', 'Practical deep-work habits that stick.'),
-            ('Salt & Ember: Cookbook', '120 recipes for honest home cooking.'),
-            ('Starfield Chronicles', 'Book one of the space opera trilogy.'),
+            ('Beneath the Amber Tide',
+             'A historical mystery set in a 19th-century Baltic port.',
+             '18.99', None),
+            ('The Focus Protocol',
+             'A science-backed system for reclaiming attention in a distracted world.',
+             '22.99', '17.99'),
+            ('Hearth & Harvest: Seasonal Cooking',
+             '100 seasonal recipes from a working farmhouse kitchen.',
+             '34.99', None),
+            ('Voidfarer: The Last Beacon',
+             'First volume in an epic space-opera trilogy.',
+             '16.99', None),
         ],
         'Toys': [
-            ('BuildBlox Space Set', '412-piece construction set, ages 6+.'),
-            ('CuddleCloud Bear', 'Ultra-soft plush bear, 40cm.'),
-            ('RacerX RC Car', '2.4GHz remote control car with drift tires.'),
-            ('PuzzleSphere 3D', 'Challenging 3D puzzle, 540 pieces.'),
+            ('BrickQuest Lunar Base Kit',
+             '520-piece lunar base construction set with two astronaut figures, ages 7+.',
+             '69.99', None),
+            ('SnuggleNest Sloth Plush',
+             'Super-soft weighted plush sloth, 45cm, machine washable.',
+             '29.99', '24.99'),
+            ('ThunderDrift RC Buggy',
+             '1:16 scale off-road RC buggy with a 25 km/h top speed.',
+             '79.99', None),
+            ('CosmoSphere Globe Puzzle',
+             '3D planet-earth puzzle with an LED stand, 540 pieces.',
+             '39.99', None),
         ],
         'Accessories': [
-            ('UrbanEdge Weekender Bag', 'Water-resistant 35L travel duffel.'),
-            ('NovaChrono Watch', 'Minimalist quartz watch, sapphire glass.'),
-            ('Aurora Leather Wallet', 'Full-grain leather bifold, RFID safe.'),
-            ('TrailBlaze Sunglasses', 'Polarized sunglasses, UV400.'),
+            ('UrbanEdge Voyager Duffel',
+             'Waxed-canvas 40L duffel with leather trim and a shoe compartment.',
+             '129.00', None),
+            ('NovaTime Meridian Watch',
+             'Ultra-thin automatic watch with sapphire crystal and a steel mesh strap.',
+             '249.00', '209.00'),
+            ('Aurora Slimfold Card Wallet',
+             'Vegetable-tanned leather cardholder with an RFID shield.',
+             '45.00', None),
+            ('HorizonShade Polarized Aviators',
+             'Lightweight titanium aviators with polarized UV400 lenses.',
+             '89.99', None),
         ],
     }
 
@@ -247,12 +328,11 @@ class Command(BaseCommand):
         counter = 0
         for category in categories:
             names = self.PRODUCTS.get(category.name, [])
-            for position, (name, short_description) in enumerate(names):
+            for position, (name, short_description, price, sale_price) in enumerate(names):
                 counter += 1
-                base_price = Decimal(random.choice(['19.99', '29.99', '49.99', '79.99', '129.99', '199.99', '349.99']))
-                on_sale = random.random() < 0.35
+                sku = f'SE-{category.slug.upper()[:4]}-{position + 1:03d}'
                 product, created = Product.objects.get_or_create(
-                    sku=f'SE-{category.slug.upper()[:4]}-{position + 1:03d}',
+                    sku=sku,
                     defaults={
                         'name': name,
                         'category': category,
@@ -264,8 +344,8 @@ class Command(BaseCommand):
                             'return policy.'
                         ),
                         'short_description': short_description,
-                        'price': base_price,
-                        'sale_price': (base_price * Decimal(str(random.uniform(0.6, 0.85)))).quantize(Decimal('0.01')) if on_sale else None,
+                        'price': Decimal(price),
+                        'sale_price': Decimal(sale_price) if sale_price else None,
                         'stock_quantity': random.choice([0, 3, 8, 25, 40, 60, 120]),
                         'low_stock_threshold': 5,
                         'is_active': True,
@@ -274,7 +354,16 @@ class Command(BaseCommand):
                     },
                 )
                 if created:
-                    for image_index in range(random.choice([1, 2, 3])):
+                    photo = load_fixture_image(sku)
+                    if photo is not None:
+                        # Real product photo shipped with the repo (fixtures/product_images).
+                        ProductImage.objects.create(
+                            product=product,
+                            image=ContentFile(photo.read(), name=f'{product.slug}.jpg'),
+                            alt_text=name, is_primary=True, display_order=0,
+                        )
+                    extra_images = 0 if photo is not None else random.choice([1, 2, 3])
+                    for image_index in range(extra_images):
                         content = render_product_image(name, category.name, counter + image_index)
                         ProductImage.objects.create(
                             product=product,
