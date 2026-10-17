@@ -217,3 +217,44 @@ class SearchServiceTests(TestCase):
         product.save()
         qs = search_products(Product.objects.listed(), 'zephyrblade')
         self.assertIn(product, qs)
+
+
+class PersistentCatalogImageTests(TestCase):
+    def test_uploaded_image_served_without_media_directory(self):
+        import io
+        import tempfile
+        from PIL import Image
+        from django.core.files.base import ContentFile
+        from django.test import override_settings
+        from .models import CatalogImageFile
+
+        buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), 'blue').save(buffer, format='PNG')
+        photo = ProductImage(product=make_product(), is_primary=True)
+        photo.image.save('photo.png', ContentFile(buffer.getvalue()), save=True)
+        self.assertEqual(CatalogImageFile.objects.count(), 1)
+        with tempfile.TemporaryDirectory() as empty, override_settings(MEDIA_ROOT=empty, DEBUG=False):
+            response = self.client.get(photo.image.url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['Content-Type'], 'image/png')
+            self.assertEqual(b''.join(response.streaming_content), buffer.getvalue())
+            self.assertEqual(self.client.post(photo.image.url).status_code, 405)
+
+    def test_missing_image_returns_404(self):
+        response = self.client.get(reverse('products:image', kwargs={'name': 'catalog/missing.jpg'}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_populate_is_repeatable_and_preserves_existing_product(self):
+        import io
+        from django.core.management import call_command
+        product = make_product('Stellar Slim 13 Laptop S', price='949.00', stock=3)
+        ProductImage.objects.create(product=product, image='products/lost.jpg', is_primary=True)
+        call_command('populate_catalog', stdout=io.StringIO())
+        count = ProductImage.objects.count()
+        call_command('populate_catalog', stdout=io.StringIO())
+        self.assertEqual(Product.objects.count(), 4)
+        self.assertEqual(ProductImage.objects.count(), count)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 3)
+        self.assertEqual(product.price, Decimal('949.00'))
+        self.assertTrue(product.primary_image().image.storage.exists(product.primary_image().image.name))

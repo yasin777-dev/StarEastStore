@@ -9,6 +9,8 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils.text import slugify
 
+from .storage import CatalogImageStorage
+
 
 class ActiveQuerySet(models.QuerySet):
     """Convenience queryset filtering active, purchasable products."""
@@ -229,7 +231,7 @@ class ProductImage(models.Model):
     """Multiple images per product; one may be flagged as primary."""
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='products/%Y/%m/')
+    image = models.ImageField(upload_to='products/%Y/%m/', storage=CatalogImageStorage())
     alt_text = models.CharField(max_length=200, blank=True)
     is_primary = models.BooleanField(default=False)
     display_order = models.PositiveIntegerField(default=0)
@@ -358,3 +360,10 @@ class SearchService:
 def search_products(queryset, term: str):
     """Public helper wrapping SearchService."""
     return SearchService.search(queryset, term)
+
+
+class CatalogImageFile(models.Model):
+    """Image bytes survive Render restarts because PostgreSQL stores them."""
+
+    name = models.CharField(max_length=255, unique=True)
+    data = models.BinaryField()
