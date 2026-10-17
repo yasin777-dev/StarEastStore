@@ -1,6 +1,8 @@
 """Catalog views: listing with filters, detail, category/brand/search/sale."""
 from __future__ import annotations
 
+from django.views.decorators.http import require_safe
+
 from decimal import Decimal, InvalidOperation
 
 from django.core.paginator import Paginator
@@ -211,3 +213,29 @@ def sale_products(request):
         'sort_choices': SORT_CHOICES,
         'querystring': _page_querystring(request),
     })
+
+
+@require_safe
+def catalog_image(request, name):
+    """Serve persisted images, falling back to legacy disk uploads."""
+    import mimetypes
+    from django.http import FileResponse, Http404
+    from django.utils.cache import patch_cache_control
+    from django.utils._os import safe_join
+    from django.conf import settings
+    from django.core.exceptions import SuspiciousFileOperation
+    from .storage import CatalogImageStorage
+
+    try:
+        safe_join(settings.MEDIA_ROOT, name)
+        image = CatalogImageStorage().open(name, 'rb')
+    except (OSError, ValueError, SuspiciousFileOperation):
+        raise Http404('Image not found')
+    content_type = mimetypes.guess_type(name)[0]
+    if content_type not in {'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'}:
+        image.close()
+        raise Http404('Unsupported image')
+    response = FileResponse(image, content_type=content_type)
+    response['X-Content-Type-Options'] = 'nosniff'
+    patch_cache_control(response, public=True, max_age=3600)
+    return response

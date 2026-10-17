@@ -363,3 +363,28 @@ service's ephemeral disk and is wiped on every deploy.
 
 Provided for demonstration/educational use. Review and harden before running
 a real store.
+
+### Product images on Render
+
+Product photos uploaded in **Admin → Products → Images** are now stored in the
+application database and served at `/catalog-images/…`. They survive deployments
+and are shared by all workers; no external image host or public admin credentials
+are required. Include these image records in database backups. For a large media
+library, object storage is preferable to storing image bytes in PostgreSQL.
+
+After deploying this version, run in the Render service shell:
+
+```sh
+python manage.py migrate
+python manage.py populate_catalog
+```
+
+This adds three clearly labelled sample electronics with bundled **illustrations,
+not actual product photographs**, repairs missing laptop/TV/headphone images, and
+copies readable older product uploads into database storage. It is repeatable and
+does not change existing prices, stock, accounts or passwords. To repair existing
+products without adding samples, use `populate_catalog --repair-only` instead.
+Missing images for other product types are reported for manual upload. Files
+already lost on an older deployment cannot be recovered; re-upload the originals
+through `/admin/` for accurate photos. Run the repair command **before** restarting
+an older service if you need to preserve files still on its ephemeral disk.
