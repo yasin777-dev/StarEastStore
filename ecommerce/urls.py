@@ -7,9 +7,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path, re_path
 from django.views.decorators.http import require_safe
-from django.views.static import serve
 
 from .admin_site import admin_site
+from core.views import serve_media_with_fallback
 
 handler400 = 'core.views.bad_request'
 handler403 = 'core.views.forbidden'
@@ -31,7 +31,14 @@ urlpatterns = [
 
 # User uploads (product images, brand logos, avatars).
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Use the fallback-aware view even in dev so deleted media files don't
+    # produce noisy broken-image icons.
+    urlpatterns += [
+        re_path(
+            r'^%s(?P<path>.*)$' % settings.MEDIA_URL.lstrip('/'),
+            serve_media_with_fallback,
+        ),
+    ]
 elif settings.SERVE_MEDIA:
     # Platforms without a separate web server (Render's native runtime has no
     # nginx) still need /media/ served, otherwise every uploaded image 404s.
@@ -41,7 +48,6 @@ elif settings.SERVE_MEDIA:
     urlpatterns += [
         re_path(
             r'^%s(?P<path>.*)$' % settings.MEDIA_URL.lstrip('/'),
-            require_safe(serve),
-            {'document_root': settings.MEDIA_ROOT},
+            serve_media_with_fallback,
         ),
     ]
