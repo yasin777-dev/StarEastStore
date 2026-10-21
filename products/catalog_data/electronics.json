@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Nova X12 5G Smartphone",
+    "slug": "nova-x12-5g-smartphone",
+    "sku": "STR-PHN-X12",
+    "category": "Electronics",
+    "brand": "Nova",
+    "short_description": "6.7-inch 5G smartphone with a 120Hz AMOLED display and all-day battery.",
+    "description": "The Nova X12 pairs a bright 6.7-inch 120Hz AMOLED screen with a fast octa-core processor for smooth gaming and multitasking. A 5000mAh battery with 45W fast charging keeps you going through a full day. The triple-camera system captures sharp photos in low light.",
+    "price": "699.00",
+    "sale_price": "599.00",
+    "stock_quantity": 15,
+    "image": "nova-x12-smartphone.jpg"
+  },
+  {
+    "name": "Pulse Fit Smartwatch",
+    "slug": "pulse-fit-smartwatch",
+    "sku": "STR-WCH-FIT3",
+    "category": "Electronics",
+    "brand": "Pulse",
+    "short_description": "Lightweight smartwatch with heart-rate, sleep and 100+ workout modes.",
+    "description": "Track your heart rate, blood oxygen, sleep and daily steps with the Pulse Fit Smartwatch. Its 1.4-inch always-on display shows notifications at a glance. The water-resistant body and up to 10 days of battery life make it ideal for workouts and travel.",
+    "price": "129.00",
+    "sale_price": "99.00",
+    "stock_quantity": 25,
+    "image": "pulse-fit-smartwatch.jpg"
+  },
+  {
+    "name": "AirBeat Pro Wireless Earbuds",
+    "slug": "airbeat-pro-wireless-earbuds",
+    "sku": "STR-EAR-PRO",
+    "category": "Electronics",
+    "brand": "AirBeat",
+    "short_description": "True wireless earbuds with active noise cancellation and 30-hour battery.",
+    "description": "AirBeat Pro earbuds deliver rich, balanced sound with deep bass and clear vocals. Active noise cancellation blocks out traffic and office chatter. The charging case gives up to 30 hours of total playback, and IPX4 splash resistance handles workouts and rain.",
+    "price": "149.00",
+    "sale_price": "119.00",
+    "stock_quantity": 40,
+    "image": "airbeat-pro-earbuds.jpg"
+  },
+  {
+    "name": "BoomCube Portable Bluetooth Speaker",
+    "slug": "boomcube-portable-bluetooth-speaker",
+    "sku": "STR-SPK-BC1",
+    "category": "Electronics",
+    "brand": "BoomCube",
+    "short_description": "Waterproof portable speaker with 360-degree sound and 12-hour playtime.",
+    "description": "The BoomCube delivers powerful 360-degree sound from a compact, rugged body. It is IP67 rated, so it survives dust, rain and accidental drops by the pool. Connect two units wirelessly for stereo sound, and enjoy up to 12 hours of playtime on a single charge.",
+    "price": "89.00",
+    "sale_price": "69.00",
+    "stock_quantity": 30,
+    "image": "boomcube-portable-speaker.jpg"
+  },
+  {
+    "name": "Stellar Studio Over-Ear Headphones",
+    "slug": "stellar-studio-over-ear-headphones",
+    "sku": "STR-HPH-OE1",
+    "category": "Electronics",
+    "brand": "Stellar",
+    "short_description": "Foldable over-ear headphones with soft memory-foam cushions and 40-hour battery.",
+    "description": "Stellar Studio headphones combine a comfortable, adjustable headband with plush memory-foam ear cups for long listening sessions. Tuned drivers give clear highs and punchy bass for music and calls alike. The foldable design fits easily into a bag, and a wired cable is included as a backup.",
+    "price": "199.00",
+    "sale_price": "159.00",
+    "stock_quantity": 20,
+    "image": "headphones.jpg"
+  }
+]

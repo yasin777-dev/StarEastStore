@@ -254,7 +254,7 @@
       });
       btn.classList.add('selected'); btn.setAttribute('aria-pressed', 'true');
       variantInput.value = btn.dataset.variantId;
-      if (priceEl && btn.dataset.price) priceEl.textContent = '$' + btn.dataset.price;
+      if (priceEl && btn.dataset.price) priceEl.textContent = '₹' + btn.dataset.price;
     }
     if (selector) {
       selector.addEventListener('click', function (e) {
