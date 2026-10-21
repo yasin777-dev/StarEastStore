@@ -17,7 +17,7 @@
 {% block content %}
 <div id="content-main">
   <div class="se-stat-grid">
-    <div class="se-stat-card"><div class="value">${{ total_sales|floatformat:2 }}</div><div class="label">Total sales</div></div>
+    <div class="se-stat-card"><div class="value">₹{{ total_sales|floatformat:2 }}</div><div class="label">Total sales</div></div>
     <div class="se-stat-card"><div class="value">{{ orders_count }}</div><div class="label">Orders ({{ pending_orders }} pending)</div></div>
     <div class="se-stat-card"><div class="value">{{ customers_count }}</div><div class="label">Customers</div></div>
     <div class="se-stat-card"><div class="value">{{ products_count }}</div><div class="label">Products</div></div>
@@ -36,7 +36,7 @@
           <td>{{ order.user.email|truncatechars:28 }}</td>
           <td>{{ order.get_status_display }}</td>
           <td>{{ order.get_payment_status_display }}</td>
-          <td style="text-align:right">${{ order.total|floatformat:2 }}</td>
+          <td style="text-align:right">₹{{ order.total|floatformat:2 }}</td>
           <td>{{ order.created_at|date:"M j, H:i" }}</td>
         </tr>
         {% endfor %}

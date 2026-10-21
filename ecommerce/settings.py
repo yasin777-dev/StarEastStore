@@ -335,7 +335,7 @@ REST_FRAMEWORK = {
 # ---------------------------------------------------------------------------
 # Shop business rules (all totals are computed on the backend)
 # ---------------------------------------------------------------------------
-CURRENCY = env('CURRENCY', '$')
+CURRENCY = env('CURRENCY', '₹')
 SHOP_NAME = env('SHOP_NAME', 'StarEastStore')
 SHOP_TAGLINE = env('SHOP_TAGLINE', 'Everything under the eastern stars')
 
