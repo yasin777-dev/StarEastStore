@@ -5,13 +5,14 @@
   {% if just_placed %}
   <div class="card se-success-banner mb-4">
     <div class="card-body p-4 d-flex align-items-center gap-3">
-      <div class="se-success-icon sm"><i class="bi bi-check2-circle"></i></div>
+      <div class="se-success-icon sm flex-shrink-0"><i class="bi bi-check2-circle" aria-hidden="true"></i></div>
       <div>
-        <h1 class="h5 fw-bold mb-1">Thank you! Your order is confirmed.</h1>
-        <p class="text-secondary mb-0">We've emailed the details to {{ order.email }}. You can track its progress below.</p>
+        <h2 class="h5 fw-bold mb-1">Your order has been placed successfully!</h2>
+        <p class="text-secondary mb-0">Your order is saved. Track its progress below or <a href="{% url 'products:list' %}">continue shopping</a>.</p>
       </div>
     </div>
   </div>
+  {% include 'orders/partials/order_success_modal.html' %}
   {% endif %}
 
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -111,8 +112,11 @@
 
       <!-- Actions -->
       <div class="d-grid gap-2">
-        {% if order.payment_status == 'pending' and order.payment_method != 'cod' and order.current_transaction %}
-          <a href="{% url 'payments:retry' order.order_number %}" class="btn se-btn-primary"><i class="bi bi-arrow-clockwise me-2"></i>Retry payment</a>
+        {% if order.status == 'pending' and order.payment_status == 'pending' and order.payment_method != 'cod' %}
+        <form method="post" action="{% url 'payments:retry' order.order_number %}">
+          {% csrf_token %}
+          <button type="submit" class="btn se-btn-primary w-100"><i class="bi bi-arrow-clockwise me-2"></i>Retry payment</button>
+        </form>
         {% endif %}
         {% if order.can_be_cancelled_by_customer %}
         <form method="post" action="{% url 'orders:cancel' order.order_number %}"

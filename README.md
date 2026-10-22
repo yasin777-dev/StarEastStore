@@ -351,6 +351,28 @@ Migrations were never applied to the deployed database. `build.sh` runs
 `DATABASE_URL`: without it the app falls back to SQLite, whose file lives on the
 service's ephemeral disk and is wiped on every deploy.
 
+### Checkout does not create an order / orders are missing from admin
+
+Run `python manage.py migrate --noinput` after deploying. The checkout setup
+migration creates the existing **Standard shipping** default (₹4.99, 3–5
+business days) only if the store has no shipping methods at all. It does not
+change existing rates or reactivate disabled methods. Review your delivery
+rates under **Admin → Orders → Shipping methods** before accepting purchases.
+
+Checkout now displays all validation errors and keeps the cart when an order
+cannot be placed. If shipping is intentionally disabled, checkout clearly
+reports it instead of silently accepting a submission. A completed cash-on-
+delivery checkout saves the order, items, address and status history together
+before showing the success popup. Online orders are saved as pending before
+starting payment, and remain available to retry if the gateway is unavailable.
+The success popup appears only after COD confirmation or verified payment.
+
+Use **Admin → Orders → Orders** (or **View all orders** on the dashboard) to see
+both COD and pending online orders. If orders disappear **after a restart or
+redeploy**, check that the deployed storefront and admin use the same persistent
+PostgreSQL `DATABASE_URL`; an ephemeral SQLite file cannot retain store data.
+These changes cannot recover orders that were never saved or a deleted database.
+
 ## Management commands
 
 | Command | Purpose |

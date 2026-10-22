@@ -26,6 +26,7 @@
 
   <div class="se-dash-section">
     <h3>Recent orders</h3>
+    <p><a href="{% url 'admin:orders_order_changelist' %}">View all orders</a> (including cash on delivery and orders awaiting payment)</p>
     {% if recent_orders %}
     <table>
       <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th style="text-align:right">Total</th><th>Placed</th></tr></thead>

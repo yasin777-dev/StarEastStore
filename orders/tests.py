@@ -185,7 +185,7 @@ class CheckoutViewTests(TestCase):
             address_line_1='2 Side St', city='Town', state='TS',
             postal_code='12345', country='USA',
         )
-        ShippingMethod.objects.create(name='Standard', price=Decimal('4.99'))
+        self.shipping = ShippingMethod.objects.create(name='Standard', price=Decimal('4.99'))
         self.product = Product.objects.create(
             name='Checkout Widget', sku='CK-1',
             category=Category.objects.create(name='Checkout Cat'),
@@ -208,7 +208,7 @@ class CheckoutViewTests(TestCase):
         self.client.force_login(self.user)
         DatabaseCart(self.user).add(self.product, None, 2)
         response = self.client.post(reverse('orders:checkout'), {
-            'address_id': self.address.pk, 'shipping_method': 1,
+            'address_id': self.address.pk, 'shipping_method': self.shipping.pk,
             'payment_method': 'cod', 'customer_note': 'ring twice',
             'action': 'place_order',
         })
@@ -227,7 +227,7 @@ class CheckoutViewTests(TestCase):
         self.client.force_login(self.user)
         DatabaseCart(self.user).add(self.product, None, 1)
         self.client.post(reverse('orders:checkout'), {
-            'address_id': self.address.pk, 'shipping_method': 1,
+            'address_id': self.address.pk, 'shipping_method': self.shipping.pk,
             'payment_method': 'cod', 'action': 'place_order',
         })
         order = Order.objects.get(user=self.user)
@@ -244,7 +244,7 @@ class CheckoutViewTests(TestCase):
         self.client.force_login(self.user)
         DatabaseCart(self.user).add(self.product, None, 1)
         self.client.post(reverse('orders:checkout'), {
-            'address_id': self.address.pk, 'shipping_method': 1,
+            'address_id': self.address.pk, 'shipping_method': self.shipping.pk,
             'payment_method': 'cod', 'action': 'place_order',
         })
         stranger = User.objects.create_user('stranger@example.com', 'x1A!aaaa')

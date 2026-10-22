@@ -4,11 +4,13 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from cart.services import get_cart
+from cart.services import CartError, get_cart
 
+from .confirmation import consume_order_confirmation
 from .forms import CheckoutForm
 from .models import Order, PaymentStatus, ShippingMethod
 from .services import (
@@ -34,7 +36,10 @@ def checkout(request):
         messages.info(request, 'Your cart is empty. Add some products first.')
         return redirect('products:list')
 
-    from payments.services import available_payment_methods, initiate_payment
+    from payments.gateways import GatewayError
+    from payments.services import (
+        PaymentError, available_payment_methods, confirm_cash_on_delivery, initiate_payment,
+    )
 
     methods = available_payment_methods()
     subtotal = cart.subtotal()
@@ -60,33 +65,45 @@ def checkout(request):
             ))
 
         if form.is_valid():
-            address = request.user.addresses.filter(
-                pk=form.cleaned_data['address_id'],
-            ).first()
-            if address is None:
-                messages.error(request, 'Please select a valid shipping address.')
-            else:
-                try:
+            try:
+                # COD confirmation and the order/items/cart writes must succeed
+                # together. A stock race must not leave a cleared cart or a
+                # partially placed order behind.
+                with transaction.atomic():
                     order = place_order(
                         user=request.user,
                         cart=cart,
-                        address=address,
-                        shipping_method_id=form.cleaned_data['shipping_method'].pk
-                        if form.cleaned_data['shipping_method'] else None,
+                        address=form.cleaned_data['address_id'],
+                        shipping_method_id=form.cleaned_data['shipping_method'].pk,
                         coupon_code=form.cleaned_data.get('coupon_code', ''),
                         payment_method=form.cleaned_data['payment_method'],
                         customer_note=form.cleaned_data.get('customer_note', ''),
                     )
-                except CheckoutError as exc:
-                    messages.error(request, str(exc))
-                else:
+                    if order.payment_method == 'cod':
+                        confirm_cash_on_delivery(order)
+            except (CheckoutError, CartError) as exc:
+                form.add_error(None, str(exc))
+            else:
+                # The order is committed before contacting an external gateway.
+                # A payment outage must not hide an already saved order.
+                try:
                     response = initiate_payment(request, order)
+                except (GatewayError, PaymentError):
+                    messages.warning(
+                        request,
+                        'Your order is saved, but we could not start the payment. '
+                        'Please retry payment from your order details.',
+                    )
+                else:
                     if response is not None:
                         return response
-                    return redirect('orders:detail', order.order_number)
+                return redirect('orders:detail', order.order_number)
     else:
         form = CheckoutForm(user=request.user, available_payment_methods=methods)
-        default_address = request.user.addresses.filter(is_default=True).first()
+        default_address = (
+            request.user.addresses.filter(is_default=True).first()
+            or request.user.addresses.first()
+        )
         if default_address:
             form.initial['address_id'] = default_address.pk
         first_method = ShippingMethod.objects.filter(is_active=True).first()
@@ -111,6 +128,7 @@ def _checkout_context(request, form, lines, subtotal, totals, methods, coupon_co
         'tax': totals.tax,
         'grand_total': totals.total,
         'payment_methods': methods,
+        'shipping_available': form.fields['shipping_method'].queryset.exists(),
         'addresses': request.user.addresses.all(),
         'coupon_code': coupon_code,
     }
@@ -134,7 +152,7 @@ def order_detail(request, order_number: str):
     return render(request, 'orders/order_detail.html', {
         'order': order,
         'transaction_row': transaction_row,
-        'just_placed': request.GET.get('placed') == '1',
+        'just_placed': consume_order_confirmation(request, order),
     })
 
 

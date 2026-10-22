@@ -1,0 +1,25 @@
+<div class="modal fade" id="orderSuccessModal" tabindex="-1"
+     aria-labelledby="orderSuccessTitle" aria-describedby="orderSuccessDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+      <div class="modal-header border-0 pb-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close confirmation"></button>
+      </div>
+      <div class="modal-body px-4 pt-0 pb-4 text-center">
+        <div class="se-success-icon mx-auto mb-3" aria-hidden="true"><i class="bi bi-check2-circle"></i></div>
+        <h2 class="h4 fw-bold mb-3" id="orderSuccessTitle">Your order has been placed successfully!</h2>
+        <p class="text-secondary mb-2" id="orderSuccessDescription">
+          Thank you for shopping with us. Your order <strong class="text-dark">{{ order.order_number }}</strong>
+          is saved. You can track its progress in <a href="{% url 'orders:list' %}">My orders</a>.
+        </p>
+        {% if order.payment_method == 'cod' %}
+        <p class="small text-secondary mb-4">Pay {{ CURRENCY }}{{ order.total|floatformat:2 }} on delivery.</p>
+        {% endif %}
+        <div class="d-grid gap-2 mt-4">
+          <a href="{% url 'products:list' %}" class="btn se-btn-primary">Continue shopping</a>
+          <button type="button" class="btn se-btn-outline" data-bs-dismiss="modal">View order details</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

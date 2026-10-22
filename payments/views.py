@@ -4,11 +4,13 @@ from __future__ import annotations
 import logging
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from orders.confirmation import order_confirmation_redirect
 from orders.models import Order
 
 from .gateways import GatewayError, get_gateway
@@ -43,7 +45,7 @@ def simulate_payment(request, reference: str):
     if txn.gateway != 'simulated':
         return redirect('orders:detail', txn.order.order_number)
     if txn.status == TransactionStatus.SUCCEEDED:
-        return redirect(f'{txn.order.get_absolute_url()}?placed=1')
+        return redirect(txn.order.get_absolute_url())
     return render(request, 'payments/simulate.html', {
         'txn': txn,
         'order': txn.order,
@@ -69,7 +71,7 @@ def simulate_process(request, reference: str):
 
     if result.status == TransactionStatus.SUCCEEDED:
         messages.success(request, 'Payment successful! Thank you for your purchase.')
-        return redirect(f'{order.get_absolute_url()}?placed=1')
+        return order_confirmation_redirect(request, order)
     if result.status == TransactionStatus.CANCELLED:
         messages.info(request, 'Payment cancelled. You can retry whenever you like.')
         return redirect('orders:detail', order.order_number)
@@ -106,7 +108,7 @@ def verify_payment(request, reference: str):
 
     if result.status == TransactionStatus.SUCCEEDED:
         messages.success(request, 'Payment verified - thank you!')
-        return redirect(f'{order.get_absolute_url()}?placed=1')
+        return order_confirmation_redirect(request, order)
     messages.error(request, 'Your payment has not been completed yet.')
     return redirect('orders:detail', order.order_number)
 
@@ -121,6 +123,7 @@ def cancel_payment_view(request, reference: str):
     return redirect('orders:detail', txn.order.order_number)
 
 
+@login_required
 @require_POST
 def retry_payment_view(request, order_number: str):
     order = get_object_or_404(Order, order_number=order_number)
