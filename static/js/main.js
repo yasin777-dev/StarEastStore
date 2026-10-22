@@ -44,6 +44,13 @@
     if (radio.checked) radio.closest('.se-address-card').classList.add('selected');
   });
 
+  // The server renders this only once, after a saved order is confirmed.
+  // Keep the success banner usable even if JavaScript is unavailable.
+  var orderSuccessModal = document.getElementById('orderSuccessModal');
+  if (orderSuccessModal && window.bootstrap && bootstrap.Modal) {
+    bootstrap.Modal.getOrCreateInstance(orderSuccessModal).show();
+  }
+
   // Dismiss alerts automatically after 6 seconds.
   document.querySelectorAll('.alert-dismissible').forEach(function (alertEl) {
     setTimeout(function () {

@@ -6,13 +6,17 @@ browser can never mark a payment as successful by itself.
 """
 from __future__ import annotations
 
+import logging
 
 from django.db import transaction
 from django.http import HttpResponse
 
+from orders.confirmation import order_confirmation_redirect
 
 from .gateways import GatewayError, available_gateways, get_gateway
 from .models import PaymentTransaction, TransactionStatus
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentError(Exception):
@@ -45,16 +49,25 @@ def initiate_payment(request, order) -> HttpResponse | None:
 
     if order.payment_method == 'cod':
         confirm_cash_on_delivery(order)
-        return redirect(f'{order.get_absolute_url()}?placed=1')
+        return order_confirmation_redirect(request, order)
 
     gateway = get_gateway(order.payment_method, request=request)
     txn = create_transaction(order, gateway.code)
-    instructions = gateway.initiate(txn)
-    if 'redirect_url' in instructions:
-        return redirect(instructions['redirect_url'])
-    if 'template' in instructions:
-        return render(request, instructions['template'], instructions['context'])
-    raise GatewayError(f'Gateway {gateway.code} returned no payment instructions.')
+    try:
+        instructions = gateway.initiate(txn)
+        if 'redirect_url' in instructions:
+            return redirect(instructions['redirect_url'])
+        if 'template' in instructions:
+            return render(request, instructions['template'], instructions['context'])
+        raise GatewayError(f'Gateway {gateway.code} returned no payment instructions.')
+    except Exception as exc:
+        # SDK/network failures must not turn a persisted order into a 500 page.
+        # Keep an audit record and let the customer retry the same order.
+        logger.exception('Payment initiation failed for order %s', order.order_number)
+        txn.status = TransactionStatus.FAILED
+        txn.failure_reason = 'Unable to start payment. Please try again.'
+        txn.save(update_fields=['status', 'failure_reason', 'updated_at'])
+        raise PaymentError(txn.failure_reason) from exc
 
 
 def retry_payment(request, order) -> HttpResponse:
