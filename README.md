@@ -410,3 +410,25 @@ Missing images for other product types are reported for manual upload. Files
 already lost on an older deployment cannot be recovered; re-upload the originals
 through `/admin/` for accurate photos. Run the repair command **before** restarting
 an older service if you need to preserve files still on its ephemeral disk.
+
+
+### Category images on Render
+
+Photos uploaded in **Admin → Products → Categories** are also stored in the
+application database and served through `/catalog-images/…`, rather than the
+web server's temporary `/media/` folder. They remain available after restarts
+and across web instances, including with `DEBUG=False` and `SERVE_MEDIA=False`.
+Use the persistent PostgreSQL `DATABASE_URL` and include `CatalogImageFile`
+records in database backups, just as for product photos.
+
+Deploy the update and run `python manage.py migrate --noinput` (already part of
+`build.sh`). The category-image migration copies readable older category files
+into the database without renaming or deleting the originals. Existing database
+copies are never overwritten. Missing or invalid files are reported, not
+replaced with unrelated pictures.
+
+If the host has **already deleted an original file**, it cannot be recovered
+from its filename in the database. After deployment, edit the affected category
+and **re-upload the original photo once**; new uploads will use durable storage.
+Replacing a photo also generates a new image URL so a cached old image or
+placeholder cannot mask the replacement.
