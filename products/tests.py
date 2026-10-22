@@ -154,6 +154,16 @@ class CatalogViewTests(TestCase):
         response = self.client_ref.get(reverse('products:search'), {'q': 'Books'})
         self.assertContains(response, 'Beta Book')
 
+    def test_price_filter_uses_rupee_icon(self):
+        response = self.client_ref.get(reverse('products:list'),
+                                       {'min_price': '100', 'max_price': '600'})
+        self.assertContains(
+            response,
+            '<h6 class="se-filter-title"><i class="bi bi-currency-rupee me-1"></i>Price</h6>',
+            html=True,
+        )
+        self.assertNotContains(response, 'bi-currency-dollar')
+
     def test_price_filtering(self):
         response = self.client_ref.get(reverse('products:list'),
                                        {'min_price': '100', 'max_price': '600'})
