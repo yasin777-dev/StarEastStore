@@ -40,6 +40,18 @@ class ContactTests(TestCase):
     def setUp(self):
         cache.clear()
 
+    def test_contact_page_displays_updated_contact_details(self):
+        response = self.client.get(reverse('core:contact'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'CCsteast@gmail.com')
+        self.assertContains(response, 'mailto:CCsteast@gmail.com')
+        self.assertContains(response, 'Gujarat Surat Vesu')
+        self.assertContains(response, 'Mon–Fri, 9:00–18:00')
+        self.assertNotContains(response, 'hello@stareaststore.example.com')
+        self.assertNotContains(response, '+1 (555) 010-2040')
+        self.assertNotContains(response, 'bi-telephone')
+        self.assertNotContains(response, '42 Harbour Lane')
+
     def test_contact_form_saves_and_notifies(self):
         response = self.client.post(reverse('core:contact'), {
             'name': 'Curious', 'email': 'curious@example.com',
