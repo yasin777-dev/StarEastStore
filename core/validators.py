@@ -1,4 +1,6 @@
-"""File-upload validation shared by forms and admin (section 18)."""
+"""File-upload and phone-number validation shared by forms and admin."""
+import re
+
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -51,3 +53,38 @@ def validate_image(image):
             _('Image too large (%(size).1f MB). Maximum allowed is %(max).1f MB.'),
             params={'size': size / (1024 * 1024), 'max': max_size / (1024 * 1024)},
         )
+
+
+# ---------------------------------------------------------------------------
+# Phone numbers
+# ---------------------------------------------------------------------------
+PHONE_DIGITS = 10
+
+
+def normalise_phone(value: str) -> str:
+    """Return the 10 significant digits of an Indian mobile number.
+
+    Spaces, dashes, brackets and a leading country code (+91 / 91) or trunk
+    prefix (0) are stripped so ``+91 98765 43210`` and ``09876543210`` are
+    stored the same way as ``9876543210``.
+    """
+    digits = re.sub(r'\D', '', value or '')
+    if len(digits) > PHONE_DIGITS:
+        if len(digits) == PHONE_DIGITS + 2 and digits.startswith('91'):
+            digits = digits[2:]
+        elif digits.startswith('0'):
+            digits = digits[1:]
+    return digits
+
+
+def validate_phone_10_digits(value: str) -> str:
+    """Validate that *value* is a 10-digit phone number; return the digits."""
+    digits = normalise_phone(value)
+    if not digits:
+        raise ValidationError(_('Enter your phone number.'))
+    if len(digits) != PHONE_DIGITS:
+        raise ValidationError(
+            _('Phone number must be exactly %(expected)d digits - you entered %(count)d.'),
+            params={'expected': PHONE_DIGITS, 'count': len(digits)},
+        )
+    return digits

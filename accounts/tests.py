@@ -56,7 +56,7 @@ class AuthFlowTests(TestCase):
             'email': 'new@example.com',
             'first_name': 'New',
             'last_name': 'Customer',
-            'phone': '+1 555 010 0000',
+            'phone': '9876543210',
             'password1': 'Str0ng!Pass99',
             'password2': 'Str0ng!Pass99',
         })
@@ -65,6 +65,52 @@ class AuthFlowTests(TestCase):
         self.assertTrue(user.profile)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('Welcome', mail.outbox[0].subject)
+
+    def test_register_rejects_phone_that_is_not_10_digits(self):
+        for short_phone in ('98765', '98765432109', 'abc'):
+            response = self.client.post(reverse('accounts:register'), {
+                'email': f'short{len(short_phone)}@example.com',
+                'first_name': 'Short',
+                'phone': short_phone,
+                'password1': 'Str0ng!Pass99',
+                'password2': 'Str0ng!Pass99',
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'exactly 10 digits')
+            self.assertFalse(User.objects.filter(email__startswith='short').exists())
+
+    def test_register_requires_phone(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'email': 'nophone@example.com',
+            'password1': 'Str0ng!Pass99',
+            'password2': 'Str0ng!Pass99',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email='nophone@example.com').exists())
+
+    def test_register_normalises_phone_with_country_code(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'email': 'countrycode@example.com',
+            'first_name': 'Code',
+            'phone': '+91 98765 43210',
+            'password1': 'Str0ng!Pass99',
+            'password2': 'Str0ng!Pass99',
+        })
+        self.assertRedirects(response, reverse('core:home'))
+        user = User.objects.get(email='countrycode@example.com')
+        self.assertEqual(user.phone, '9876543210')
+        self.assertEqual(user.profile.phone, '9876543210')
+
+    def test_register_rejects_mismatched_passwords(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'email': 'mismatch@example.com',
+            'phone': '9876543210',
+            'password1': 'Str0ng!Pass99',
+            'password2': 'Different!Pass99',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'do not match')
+        self.assertFalse(User.objects.filter(email='mismatch@example.com').exists())
 
     def test_register_rejects_duplicate_email(self):
         response = self.client.post(reverse('accounts:register'), {
@@ -152,8 +198,21 @@ class AddressTests(TestCase):
             'full_name': 'Addr Tester', 'phone': '5551234567',
             'address_line_1': '1 Main St', 'address_line_2': '',
             'city': 'Springfield', 'state': 'IL', 'postal_code': '62701',
-            'country': 'United States', 'is_default': False,
+            'country': 'India', 'is_default': False,
         }
+
+    def test_address_form_defaults_country_to_india(self):
+        response = self.client.get(reverse('accounts:address_create'))
+        self.assertEqual(response.context['form'].initial['country'], 'India')
+        self.assertContains(response, '<option value="India" selected>')
+
+    def test_address_model_defaults_country_to_india(self):
+        address = Address(
+            user=self.user, full_name='Default Country', phone='9876543210',
+            address_line_1='1 Main St', city='Surat', state='Gujarat',
+            postal_code='395007',
+        )
+        self.assertEqual(address.country, 'India')
 
     def test_first_address_becomes_default(self):
         self.client.post(reverse('accounts:address_create'), self.payload)

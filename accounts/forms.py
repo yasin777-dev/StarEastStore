@@ -8,7 +8,7 @@ from django.contrib.auth.forms import (
 )
 from django.core.exceptions import ValidationError
 
-from core.validators import validate_image
+from core.validators import validate_image, validate_phone_10_digits
 
 from .models import Address, CustomerProfile
 
@@ -31,16 +31,36 @@ class RegisterForm(UserCreationForm):
         widget=forms.TextInput(attrs={'class': 'form-control'}),
     )
     phone = forms.CharField(
-        max_length=20, required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Phone number',
+        max_length=20,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'inputmode': 'numeric',
+            'autocomplete': 'tel',
+            'maxlength': '10',
+            'pattern': '[0-9]{10}',
+            'placeholder': '9876543210',
+        }),
+        help_text='10-digit mobile number.',
+        error_messages={'required': 'Enter your 10-digit phone number.'},
     )
 
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name', 'phone')
 
+    #: Django compares password1 and password2 in ``clean_password2``; make the
+    #: mismatch message explicit so the form cannot be submitted until they match.
+    error_messages = {
+        **UserCreationForm.error_messages,
+        'password_mismatch': 'The two passwords do not match. Please re-enter them.',
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['password1'].label = 'Password'
+        self.fields['password2'].label = 'Confirm your password'
         self.fields['password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control'})
 
@@ -49,6 +69,10 @@ class RegisterForm(UserCreationForm):
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError('An account with this email already exists.')
         return email
+
+    def clean_phone(self) -> str:
+        """Reject anything that is not a 10-digit number and store the digits."""
+        return validate_phone_10_digits(self.cleaned_data['phone'])
 
     def save(self, commit: bool = True):
         user = super().save(commit=False)
@@ -134,7 +158,39 @@ class ProfileForm(forms.ModelForm):
         return profile
 
 
+DEFAULT_COUNTRY = 'India'
+
+#: Countries offered in the address form. India is first so it is the default.
+COUNTRY_CHOICES = [
+    ('India', 'India'),
+    ('United States', 'United States'),
+    ('United Kingdom', 'United Kingdom'),
+    ('United Arab Emirates', 'United Arab Emirates'),
+    ('Australia', 'Australia'),
+    ('Canada', 'Canada'),
+    ('Singapore', 'Singapore'),
+    ('Malaysia', 'Malaysia'),
+    ('Nepal', 'Nepal'),
+    ('Bangladesh', 'Bangladesh'),
+    ('Sri Lanka', 'Sri Lanka'),
+    ('Saudi Arabia', 'Saudi Arabia'),
+    ('South Africa', 'South Africa'),
+    ('Germany', 'Germany'),
+    ('France', 'France'),
+    ('Netherlands', 'Netherlands'),
+    ('Japan', 'Japan'),
+    ('China', 'China'),
+    ('New Zealand', 'New Zealand'),
+]
+
+
 class AddressForm(forms.ModelForm):
+    country = forms.ChoiceField(
+        choices=COUNTRY_CHOICES,
+        initial=DEFAULT_COUNTRY,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
     class Meta:
         model = Address
         fields = [
@@ -149,9 +205,20 @@ class AddressForm(forms.ModelForm):
             'city': forms.TextInput(attrs={'class': 'form-control'}),
             'state': forms.TextInput(attrs={'class': 'form-control'}),
             'postal_code': forms.TextInput(attrs={'class': 'form-control'}),
-            'country': forms.TextInput(attrs={'class': 'form-control'}),
             'is_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A previously saved country that is not in the list must stay
+        # selectable, otherwise editing the address would silently change it.
+        saved_country = self.instance.country if self.instance.pk else None
+        if saved_country and saved_country not in dict(self.fields['country'].choices):
+            self.fields['country'].choices = [
+                *self.fields['country'].choices, (saved_country, saved_country),
+            ]
+        if not self.is_bound:
+            self.initial.setdefault('country', saved_country or DEFAULT_COUNTRY)
 
 
 class ChangePasswordForm(PasswordChangeForm):
