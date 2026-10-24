@@ -96,6 +96,14 @@ class Coupon(models.Model):
         default=True,
         help_text='Advertise this code in the storefront offers list.',
     )
+    first_order_only = models.BooleanField(
+        default=False,
+        help_text='Only redeemable by customers who have not ordered yet (welcome gift).',
+    )
+    per_user_limit = models.PositiveIntegerField(
+        blank=True, null=True,
+        help_text='Maximum redemptions per customer. Leave empty for unlimited.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -146,6 +154,55 @@ class Coupon(models.Model):
             discount = self.discount_value
         # Never discount more than the subtotal itself.
         return min(discount, subtotal).quantize(Decimal('0.01'))
+
+    # -- per-customer rules ------------------------------------------------
+    def redemptions_by(self, user) -> int:
+        """How many live (non-cancelled) orders this customer placed with the code."""
+        if user is None or not getattr(user, 'pk', None):
+            return 0
+        return self.orders.filter(user=user).exclude(
+            status__in=[OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+        ).count()
+
+    def user_validation_error(self, user) -> str | None:
+        """Per-customer restriction reason (None when the customer may use it)."""
+        if user is None or not getattr(user, 'pk', None):
+            return None
+        # Redemption limit first: "already used" is clearer than quoting the
+        # first-order rule to somebody who just claimed the gift.
+        if self.per_user_limit is not None:
+            used = self.redemptions_by(user)
+            if used >= self.per_user_limit:
+                if self.per_user_limit == 1:
+                    return (
+                        f'You have already used coupon "{self.code}". '
+                        'It can only be used once per customer.'
+                    )
+                return (
+                    f'Coupon "{self.code}" can be used at most '
+                    f'{self.per_user_limit} times per customer.'
+                )
+        if self.first_order_only:
+            ordered_before = Order.objects.filter(user=user).exclude(
+                status__in=[OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+            ).exists()
+            if ordered_before:
+                return (
+                    f'Coupon "{self.code}" is a welcome gift for first orders only.'
+                )
+        return None
+
+    @property
+    def audience_note(self) -> str:
+        """Short note for the storefront offers list."""
+        notes = []
+        if self.first_order_only:
+            notes.append('First order only')
+        if self.per_user_limit == 1:
+            notes.append('Once per customer')
+        elif self.per_user_limit:
+            notes.append(f'Up to {self.per_user_limit} uses per customer')
+        return ' \u00b7 '.join(notes)
 
     @property
     def headline(self) -> str:

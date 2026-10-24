@@ -75,7 +75,7 @@ def checkout(request):
         elif not requested:
             messages.info(request, 'Type a coupon code first, then press Apply.')
         else:
-            coupon, error = resolve_coupon(requested, subtotal)
+            coupon, error = resolve_coupon(requested, subtotal, request.user)
             if error:
                 messages.error(request, error)
             else:
@@ -156,7 +156,7 @@ def _checkout_context(request, form, lines, subtotal, methods, coupon_code='',
                       shipping_method=None, show_form_errors=True):
     # The coupon lives only in this page's form until the order is placed, so
     # the preview is recomputed from the posted code on every render.
-    coupon, _error = resolve_coupon(coupon_code, subtotal)
+    coupon, _error = resolve_coupon(coupon_code, subtotal, request.user)
     totals = compute_totals(subtotal, coupon, shipping_method)
     return {
         'form': form,
@@ -172,7 +172,7 @@ def _checkout_context(request, form, lines, subtotal, methods, coupon_code='',
         'addresses': request.user.addresses.all(),
         'coupon_code': coupon_code,
         'applied_coupon': coupon,
-        'coupon_offers': available_coupons(subtotal),
+        'coupon_offers': available_coupons(subtotal, request.user),
         'show_form_errors': show_form_errors,
     }
 

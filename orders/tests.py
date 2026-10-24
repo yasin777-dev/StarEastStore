@@ -538,3 +538,142 @@ class CouponOffersTests(TestCase):
         response = session_client.get(reverse('cart:detail'))
         # Empty cart -> nothing to advertise, but the page still renders.
         self.assertEqual(response.status_code, 200)
+
+
+class CouponPerCustomerTests(TestCase):
+    """Welcome gifts and per-customer redemption limits."""
+
+    def setUp(self):
+        from cart.services import DatabaseCart
+
+        self.client = Client()
+        self.user = User.objects.create_user('first@example.com', 'x1A!aaaa')
+        self.address = Address.objects.create(
+            user=self.user, full_name='First Timer', phone='5551234567',
+            address_line_1='9 Welcome Way', city='Town', state='TS',
+            postal_code='12345', country='India',
+        )
+        self.shipping = ShippingMethod.objects.create(
+            name='Courier', price=Decimal('4.99'),
+        )
+        self.product = Product.objects.create(
+            name='Big Basket Item', sku='BB-1',
+            category=Category.objects.create(name='Basket Cat'),
+            description='Pricey', price=Decimal('600.00'), stock_quantity=30,
+        )
+        self.welcome = Coupon.objects.create(
+            code='WELCOME100', discount_type=Coupon.DiscountType.FIXED,
+            discount_value=Decimal('100'), minimum_order_amount=Decimal('499'),
+            first_order_only=True, per_user_limit=1,
+        )
+        self.big = Coupon.objects.create(
+            code='SAVE400', discount_type=Coupon.DiscountType.FIXED,
+            discount_value=Decimal('400'), minimum_order_amount=Decimal('5000'),
+        )
+        self.cart = DatabaseCart(self.user)
+        self.client.force_login(self.user)
+
+    def _order(self, coupon_code='', qty=1):
+        return self.client.post(reverse('orders:checkout'), {
+            'address_id': self.address.pk,
+            'shipping_method': self.shipping.pk,
+            'payment_method': 'cod',
+            'coupon_code': coupon_code,
+            'action': 'place_order',
+        })
+
+    def test_audience_note_describes_the_rules(self):
+        self.assertEqual(self.welcome.audience_note, 'First order only \u00b7 Once per customer')
+        self.assertEqual(self.big.audience_note, '')
+
+    def test_headline_for_large_basket_offer(self):
+        self.assertEqual(self.big.headline, '\u20b9400.00 off on orders over \u20b95,000.00')
+
+    def test_first_order_only_blocks_a_returning_customer(self):
+        Order.objects.create(
+            user=self.user, email=self.user.email,
+            shipping_full_name='First Timer', shipping_phone='5551234567',
+            shipping_address_line_1='9 Welcome Way', shipping_city='Town',
+            shipping_state='TS', shipping_postal_code='12345', shipping_country='India',
+            subtotal=Decimal('600.00'), total=Decimal('600.00'),
+        )
+        coupon, error = resolve_coupon('WELCOME100', Decimal('600.00'), self.user)
+        self.assertIsNone(coupon)
+        self.assertIn('first orders only', error)
+
+    def test_first_order_only_allows_a_brand_new_customer(self):
+        coupon, error = resolve_coupon('WELCOME100', Decimal('600.00'), self.user)
+        self.assertIsNone(error)
+        self.assertEqual(coupon, self.welcome)
+
+    def test_welcome_coupon_can_only_be_used_once(self):
+        self.cart.add(self.product, None, 1)  # 600.00
+        self._order('WELCOME100')
+        order = Order.objects.get(user=self.user)
+        self.assertEqual(order.discount, Decimal('100.00'))
+        # 600 - 100 = 500 discounted subtotal -> free shipping kicks in.
+        self.assertEqual(order.shipping_fee, Decimal('0.00'))
+        self.assertEqual(order.total, Decimal('500.00'))
+
+        # Second attempt is blocked before a second order can be created.
+        self.cart.add(self.product, None, 1)
+        response = self.client.post(reverse('orders:checkout'), {
+            'address_id': self.address.pk,
+            'shipping_method': self.shipping.pk,
+            'payment_method': 'cod',
+            'coupon_code': 'WELCOME100',
+            'action': 'place_order',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already used')
+        self.assertContains(response, 'once per customer')
+        self.assertEqual(Order.objects.filter(user=self.user).count(), 1)
+        self.assertFalse(self.cart.is_empty())
+
+    def test_welcome_coupon_is_hidden_once_claimed(self):
+        self.cart.add(self.product, None, 1)
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(response, 'WELCOME100')
+        self._order('WELCOME100')
+        self.cart.add(self.product, None, 1)
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertNotContains(response, 'WELCOME100')
+        self.assertContains(response, 'SAVE400')
+
+    def test_cancelling_the_order_frees_the_welcome_coupon(self):
+        self.cart.add(self.product, None, 1)
+        self._order('WELCOME100')
+        order = Order.objects.get(user=self.user)
+        self.client.post(
+            reverse('orders:cancel', kwargs={'order_number': order.order_number}))
+        coupon, error = resolve_coupon('WELCOME100', Decimal('600.00'), self.user)
+        self.assertIsNone(error)
+        self.assertEqual(coupon, self.welcome)
+
+    def test_pending_online_payment_still_holds_the_coupon(self):
+        from payments.models import PaymentTransaction  # noqa: F401  (app loaded)
+
+        Coupon.objects.create(
+            code='ONCE', discount_type=Coupon.DiscountType.FIXED,
+            discount_value=Decimal('10'), per_user_limit=1,
+        )
+        self.cart.add(self.product, None, 1)
+        self._order('ONCE')
+        coupon, error = resolve_coupon('ONCE', Decimal('600.00'), self.user)
+        self.assertIsNone(coupon)
+        self.assertIn('only be used once', error)
+
+    def test_big_basket_offer_requires_the_minimum(self):
+        self.cart.add(self.product, None, 2)  # 1200.00
+        coupon, error = resolve_coupon('SAVE400', Decimal('1200.00'), self.user)
+        self.assertIsNone(coupon)
+        self.assertIn('minimum order of \u20b95,000.00', error)
+
+        coupon, error = resolve_coupon('SAVE400', Decimal('5600.00'), self.user)
+        self.assertIsNone(error)
+        self.assertEqual(coupon.discount_for(Decimal('5600.00')), Decimal('400.00'))
+
+    def test_offers_list_marks_the_first_order_gift(self):
+        self.cart.add(self.product, None, 1)
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(response, 'First order only')

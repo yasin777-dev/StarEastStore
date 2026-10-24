@@ -144,16 +144,17 @@ class ShippingMethodAdmin(admin.ModelAdmin):
 @admin.register(Coupon, site=admin_site)
 class CouponAdmin(admin.ModelAdmin):
     list_display = ('code', 'discount_display', 'minimum_order_amount',
-                    'maximum_discount', 'usage_summary', 'valid_from',
-                    'valid_until', 'is_active', 'is_public')
-    list_filter = ('discount_type', 'is_active', 'is_public')
+                    'maximum_discount', 'usage_summary', 'per_user_limit',
+                    'first_order_only', 'valid_from', 'valid_until',
+                    'is_active', 'is_public')
+    list_filter = ('discount_type', 'is_active', 'is_public', 'first_order_only')
     list_editable = ('is_active', 'is_public')
     fieldsets = (
         ('Coupon', {'fields': ('code', 'is_active', 'is_public')}),
         ('Discount', {'fields': ('discount_type', 'discount_value',
                                  'minimum_order_amount', 'maximum_discount')}),
-        ('Limits', {'fields': ('usage_limit', 'used_count', 'valid_from',
-                               'valid_until')}),
+        ('Limits', {'fields': ('usage_limit', 'used_count', 'per_user_limit',
+                               'first_order_only', 'valid_from', 'valid_until')}),
     )
     search_fields = ('code',)
     readonly_fields = ('used_count',)

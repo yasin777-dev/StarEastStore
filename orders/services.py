@@ -75,10 +75,12 @@ def format_money(amount: Decimal) -> str:
     return f'{settings.CURRENCY}{amount:,.2f}'
 
 
-def available_coupons(subtotal: Decimal | None = None) -> list[Coupon]:
+def available_coupons(
+    subtotal: Decimal | None = None, user=None,
+) -> list[Coupon]:
     """
-    Coupons shoppers are allowed to see: active, public and inside their
-    validity window, with redemptions left.
+    Coupons shoppers are allowed to see: active, public, inside their
+    validity window, with redemptions left and still usable by ``user``.
 
     When a ``subtotal`` is supplied each coupon is annotated with ``eligible``
     and ``shortfall`` (how much more the cart needs) so the storefront can nudge
@@ -92,6 +94,10 @@ def available_coupons(subtotal: Decimal | None = None) -> list[Coupon]:
     )
     offers = []
     for coupon in coupons:
+        # Hide codes this customer can no longer use (welcome gift already
+        # claimed, redemption limit reached) rather than advertising a dud.
+        if coupon.user_validation_error(user):
+            continue
         coupon.eligible = subtotal is None or subtotal >= coupon.minimum_order_amount
         coupon.shortfall = (
             Decimal('0.00') if subtotal is None
@@ -103,14 +109,15 @@ def available_coupons(subtotal: Decimal | None = None) -> list[Coupon]:
 
 
 def resolve_coupon(
-    code: str | None, subtotal: Decimal | None = None,
+    code: str | None, subtotal: Decimal | None = None, user=None,
 ) -> tuple[Coupon | None, str | None]:
     """
     Return (coupon, error). Coupon is None when no code supplied/invalid.
 
     When ``subtotal`` is given the coupon's minimum order amount is checked
     too, so shoppers get a clear reason instead of a silently applied coupon
-    that discounts nothing.
+    that discounts nothing. When ``user`` is given, per-customer rules are
+    enforced as well (first-order-only welcome gifts, redemption limits).
     """
     code = (code or '').strip().upper()
     if not code:
@@ -119,6 +126,9 @@ def resolve_coupon(
     if coupon is None:
         return None, f'Coupon "{code}" was not found. Please check the code and try again.'
     error = coupon.validation_error()
+    if error:
+        return None, error
+    error = coupon.user_validation_error(user)
     if error:
         return None, error
     if subtotal is not None and subtotal < coupon.minimum_order_amount:
@@ -155,7 +165,7 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
             )
 
     subtotal = cart.subtotal()
-    coupon, coupon_error = resolve_coupon(coupon_code, subtotal)
+    coupon, coupon_error = resolve_coupon(coupon_code, subtotal, user)
     if coupon_error:
         raise CheckoutError(coupon_error)
 

@@ -21,7 +21,9 @@ def cart_detail(request):
         'subtotal': subtotal,
         'count': cart.count(),
         # Advertised coupons, flagged with how much more the cart needs.
-        'coupon_offers': available_coupons(subtotal) if lines else [],
+        'coupon_offers': available_coupons(
+            subtotal, request.user if request.user.is_authenticated else None,
+        ) if lines else [],
     })
 
 

@@ -222,6 +222,7 @@ a:hover { color: var(--se-primary-dark); }
 .se-offer-code { display: inline-block; align-self: flex-start; background: #fff; border: 1px dashed var(--se-primary); color: var(--se-primary-dark); font-weight: 700; letter-spacing: .04em; padding: .05rem .45rem; border-radius: 6px; font-size: .82rem; }
 .se-offer-desc { font-size: .82rem; color: #374151; }
 .se-offer-hint { font-size: .75rem; color: #92400e; }
+.se-offer-note { font-size: .72rem; color: var(--se-primary-dark); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 .se-offer-locked { opacity: .72; }
 .se-badge-applied { background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 600; }
 

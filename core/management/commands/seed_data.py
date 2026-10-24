@@ -178,7 +178,9 @@ class Command(BaseCommand):
         self.stdout.write(f'   Admin:      {admin.email} (password from env or "admin12345!")')
         self.stdout.write(f'   Customer:   {customer.email} (password from env or "demo12345!")')
         self.stdout.write(f'   Categories: {len(categories)}  Brands: {len(brands)}  Products: {len(products)}')
-        self.stdout.write('   Coupons:    WELCOME10, SAVE5, VIP20')
+        self.stdout.write(
+            '   Coupons:    WELCOME100 (₹100 off, first order) · SAVE200 · SAVE400 · VIP20 · FESTIVE10'
+        )
         self.stdout.write('   Run the server with: python manage.py runserver')
 
     # ------------------------------------------------------------- creators
@@ -314,24 +316,56 @@ class Command(BaseCommand):
         )
 
     def create_coupons(self):
+        """A small ladder of demo offers, from welcome gift to big-basket."""
         now = timezone.now()
-        Coupon.objects.get_or_create(code='WELCOME10', defaults={
-            'discount_type': Coupon.DiscountType.PERCENTAGE, 'discount_value': 10,
-            'minimum_order_amount': 20, 'maximum_discount': 20,
-            'valid_from': now - timedelta(days=30),
-            'valid_until': now + timedelta(days=365), 'is_active': True,
-        })
-        Coupon.objects.get_or_create(code='SAVE5', defaults={
-            'discount_type': Coupon.DiscountType.FIXED, 'discount_value': 5,
-            'minimum_order_amount': 30, 'valid_from': now - timedelta(days=10),
-            'valid_until': now + timedelta(days=90), 'is_active': True,
-        })
-        Coupon.objects.get_or_create(code='VIP20', defaults={
-            'discount_type': Coupon.DiscountType.PERCENTAGE, 'discount_value': 20,
-            'minimum_order_amount': 100, 'maximum_discount': 50, 'usage_limit': 50,
-            'valid_from': now - timedelta(days=5),
-            'valid_until': now + timedelta(days=45), 'is_active': True,
-        })
+
+        # code -> {field: value}. Re-running the command refreshes the terms so
+        # an existing demo database picks up the current offer ladder.
+        offers = [
+            ('WELCOME100', {
+                'discount_type': Coupon.DiscountType.FIXED,
+                'discount_value': 100, 'minimum_order_amount': 499,
+                'first_order_only': True, 'per_user_limit': 1,
+                'valid_from': now - timedelta(days=30),
+                'valid_until': None, 'is_active': True, 'is_public': True,
+            }),
+            ('SAVE200', {
+                'discount_type': Coupon.DiscountType.FIXED,
+                'discount_value': 200, 'minimum_order_amount': 3000,
+                'valid_from': now - timedelta(days=10),
+                'valid_until': now + timedelta(days=180), 'is_active': True,
+                'is_public': True,
+            }),
+            ('SAVE400', {
+                'discount_type': Coupon.DiscountType.FIXED,
+                'discount_value': 400, 'minimum_order_amount': 5000,
+                'valid_from': now - timedelta(days=10),
+                'valid_until': now + timedelta(days=180), 'is_active': True,
+                'is_public': True,
+            }),
+            ('VIP20', {
+                'discount_type': Coupon.DiscountType.PERCENTAGE,
+                'discount_value': 20, 'minimum_order_amount': 1000,
+                'maximum_discount': 500, 'usage_limit': 100,
+                'valid_from': now - timedelta(days=5),
+                'valid_until': now + timedelta(days=90), 'is_active': True,
+                'is_public': True,
+            }),
+            ('FESTIVE10', {
+                'discount_type': Coupon.DiscountType.PERCENTAGE,
+                'discount_value': 10, 'minimum_order_amount': 1500,
+                'maximum_discount': 250,
+                'valid_from': now - timedelta(days=2),
+                'valid_until': now + timedelta(days=30), 'is_active': True,
+                'is_public': True,
+            }),
+        ]
+        for code, terms in offers:
+            Coupon.objects.update_or_create(code=code, defaults=terms)
+
+        # Legacy demo codes from earlier seeds would otherwise linger in the
+        # storefront offers list.
+        Coupon.objects.filter(code__in=['WELCOME10', 'SAVE5']).update(is_active=False)
 
     def create_reviews(self, customer, products):
         from reviews.models import Review
