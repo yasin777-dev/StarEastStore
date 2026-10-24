@@ -177,6 +177,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('\n✅ Seed data created:'))
         self.stdout.write(f'   Admin:      {admin.email} (password from env or "admin12345!")')
         self.stdout.write(f'   Customer:   {customer.email} (password from env or "demo12345!")')
+        self.stdout.write('   New shopper: newbie@stareaststore.com / newbie12345! (no orders -> can use WELCOME100)')
         self.stdout.write(f'   Categories: {len(categories)}  Brands: {len(brands)}  Products: {len(products)}')
         self.stdout.write(
             '   Coupons:    WELCOME100 (₹100 off, first order) · SAVE200 · SAVE400 · VIP20 · FESTIVE10'
@@ -212,6 +213,22 @@ class Command(BaseCommand):
                 city='Portside', state='CA', postal_code='94000',
                 country='India', is_default=True,
             )
+        # A pristine shopper with no order history: handy for checking
+        # first-order coupons such as WELCOME100 after seeding.
+        new_email = os.environ.get('DEMO_NEW_CUSTOMER_EMAIL', 'newbie@stareaststore.com')
+        if not User.objects.filter(email=new_email).exists():
+            from accounts.models import Address
+
+            new_shopper = User.objects.create_user(
+                email=new_email, password='newbie12345!',
+                first_name='Nina', last_name='New', phone='+1 555 010 8888',
+            )
+            Address.objects.create(
+                user=new_shopper, full_name='Nina New', phone='+1 555 010 8888',
+                address_line_1='7 First Street', city='Portside', state='CA',
+                postal_code='94000', country='India', is_default=True,
+            )
+
         # Extra reviewers for a natural review section.
         for index in range(1, 5):
             email = f'reviewer{index}@stareaststore.com'
