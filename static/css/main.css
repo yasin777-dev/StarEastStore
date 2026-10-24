@@ -214,6 +214,7 @@ a:hover { color: var(--se-primary-dark); }
 .se-method-list { display: flex; flex-direction: column; gap: .5rem; }
 .se-method-item { display: flex; align-items: center; gap: .6rem; border: 1.5px solid var(--se-border); border-radius: 10px; padding: .7rem 1rem; cursor: pointer; margin: 0; }
 .se-method-item:has(input:checked) { border-color: var(--se-primary); background: var(--se-primary-soft); }
+.se-coupon-box { border-top: 1px dashed var(--se-border); padding-top: .9rem; }
 
 /* -------------------------------- Orders --------------------------------- */
 .se-order-card { border: 1px solid var(--se-border); border-radius: var(--se-radius); }

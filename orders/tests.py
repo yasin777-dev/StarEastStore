@@ -2,6 +2,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import Client, TestCase
@@ -312,3 +313,132 @@ class OrderCancellationTests(TestCase):
         response = client2.post(
             reverse('orders:cancel', kwargs={'order_number': order.order_number}))
         self.assertEqual(response.status_code, 404)
+
+
+class CheckoutCouponTests(TestCase):
+    """Applying, previewing and removing coupons on the checkout page."""
+
+    def setUp(self):
+        from cart.services import DatabaseCart
+
+        self.client = Client()
+        self.user = User.objects.create_user('coupon-ck@example.com', 'x1A!aaaa')
+        self.address = Address.objects.create(
+            user=self.user, full_name='Coupon Customer', phone='5551234567',
+            address_line_1='4 Coupon Rd', city='Town', state='TS',
+            postal_code='12345', country='India',
+        )
+        self.shipping = ShippingMethod.objects.create(
+            name='Courier', price=Decimal('4.99'),
+        )
+        self.product = Product.objects.create(
+            name='Coupon Widget', sku='CP-1',
+            category=Category.objects.create(name='Coupon Cat'),
+            description='Couponable', price=Decimal('30.00'), stock_quantity=10,
+        )
+        self.coupon = Coupon.objects.create(
+            code='SAVE10', discount_type=Coupon.DiscountType.PERCENTAGE,
+            discount_value=Decimal('10'), minimum_order_amount=Decimal('20'),
+        )
+        self.cart = DatabaseCart(self.user)
+        self.client.force_login(self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            'address_id': self.address.pk,
+            'shipping_method': self.shipping.pk,
+            'payment_method': 'cod',
+            'action': 'place_order',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_apply_coupon_does_not_require_the_rest_of_the_form(self):
+        """A shopper can preview a code before picking address/payment."""
+        self.cart.add(self.product, None, 2)  # 60.00 subtotal
+        response = self.client.post(
+            reverse('orders:checkout'),
+            {'coupon_code': 'save10', 'action': 'apply_coupon'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Your order has not been placed yet')
+        self.assertContains(response, 'SAVE10 applied')
+        self.assertContains(response, f'-{settings.CURRENCY}6.00')
+
+    def test_apply_unknown_coupon_shows_error_without_discount(self):
+        self.cart.add(self.product, None, 2)
+        response = self.client.post(
+            reverse('orders:checkout'),
+            {'coupon_code': 'NOPE', 'action': 'apply_coupon'},
+        )
+        self.assertContains(response, 'was not found')
+        self.assertNotContains(response, 'applied')
+        self.assertNotContains(response, f'-{settings.CURRENCY}')
+
+    def test_apply_coupon_below_minimum_explains_the_requirement(self):
+        self.cart.add(self.product, None, 1)  # 30.00, minimum is 20 -> ok
+        self.coupon.minimum_order_amount = Decimal('50')
+        self.coupon.save()
+        response = self.client.post(
+            reverse('orders:checkout'),
+            {'coupon_code': 'SAVE10', 'action': 'apply_coupon'},
+        )
+        self.assertContains(response, 'minimum order')
+        self.assertNotContains(response, 'applied')
+
+    def test_remove_coupon_clears_the_discount(self):
+        self.cart.add(self.product, None, 2)
+        response = self.client.post(
+            reverse('orders:checkout'),
+            {'coupon_code': 'SAVE10', 'action': 'remove_coupon'},
+        )
+        self.assertContains(response, 'Coupon removed')
+        self.assertNotContains(response, 'SAVE10 applied')
+        self.assertNotContains(response, f'-{settings.CURRENCY}6.00')
+
+    def test_place_order_with_coupon_discounts_the_total(self):
+        self.cart.add(self.product, None, 2)  # 60.00 - 6.00 = 54.00 + 4.99 shipping
+        response = self.client.post(
+            reverse('orders:checkout'), self._payload(coupon_code='SAVE10'),
+        )
+        order = Order.objects.get(user=self.user)
+        self.assertRedirects(response, f'{order.get_absolute_url()}?placed=1')
+        self.assertEqual(order.coupon, self.coupon)
+        self.assertEqual(order.discount, Decimal('6.00'))
+        self.assertEqual(order.shipping_fee, Decimal('4.99'))
+        self.assertEqual(order.total, Decimal('58.99'))
+
+    def test_place_order_below_coupon_minimum_is_rejected(self):
+        self.coupon.minimum_order_amount = Decimal('100')
+        self.coupon.save()
+        self.cart.add(self.product, None, 2)
+        response = self.client.post(
+            reverse('orders:checkout'), self._payload(coupon_code='SAVE10'),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'minimum order')
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+        self.assertFalse(self.cart.is_empty())
+
+    def test_preview_total_includes_shipping(self):
+        self.cart.add(self.product, None, 1)  # 30.00 + 4.99 = 34.99
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(
+            response, f'Place order · {settings.CURRENCY}34.99',
+        )
+
+    def test_cod_order_counts_and_cancellation_releases_coupon_usage(self):
+        self.coupon.usage_limit = 3
+        self.coupon.save()
+        self.cart.add(self.product, None, 2)
+        self.client.post(
+            reverse('orders:checkout'), self._payload(coupon_code='SAVE10'),
+        )
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.used_count, 1)
+        order = Order.objects.get(user=self.user)
+        self.client.post(
+            reverse('orders:cancel', kwargs={'order_number': order.order_number}),
+        )
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.used_count, 0)

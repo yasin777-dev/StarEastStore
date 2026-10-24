@@ -210,4 +210,8 @@ def confirm_cash_on_delivery(order) -> None:
     order.save(update_fields=['payment_status', 'status', 'updated_at'])
     record_status_change(order, old_status, OrderStatus.CONFIRMED,
                          note='Cash on delivery - order confirmed')
+    # Count the redemption here too, otherwise limited coupons would never
+    # hit their usage_limit on cash-on-delivery orders.
+    if order.coupon_id:
+        order.coupon.mark_used()
     _send_success_emails(order)

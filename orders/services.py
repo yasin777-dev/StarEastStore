@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 
 
 from .models import (
@@ -68,17 +69,37 @@ def compute_totals(
     )
 
 
-def resolve_coupon(code: str | None) -> tuple[Coupon | None, str | None]:
-    """Return (coupon, error). Coupon is None when no code supplied/invalid."""
+def format_money(amount: Decimal) -> str:
+    """Render an amount with the shop currency prefix (e.g. ₹12.50)."""
+    return f'{settings.CURRENCY}{amount:,.2f}'
+
+
+def resolve_coupon(
+    code: str | None, subtotal: Decimal | None = None,
+) -> tuple[Coupon | None, str | None]:
+    """
+    Return (coupon, error). Coupon is None when no code supplied/invalid.
+
+    When ``subtotal`` is given the coupon's minimum order amount is checked
+    too, so shoppers get a clear reason instead of a silently applied coupon
+    that discounts nothing.
+    """
     code = (code or '').strip().upper()
     if not code:
         return None, None
     coupon = Coupon.objects.filter(code=code).first()
     if coupon is None:
-        return None, f'Coupon "{code}" was not found.'
+        return None, f'Coupon "{code}" was not found. Please check the code and try again.'
     error = coupon.validation_error()
     if error:
         return None, error
+    if subtotal is not None and subtotal < coupon.minimum_order_amount:
+        missing = coupon.minimum_order_amount - subtotal
+        return None, (
+            f'Coupon "{coupon.code}" needs a minimum order of '
+            f'{format_money(coupon.minimum_order_amount)}. '
+            f'Add {format_money(missing)} more to your cart to use it.'
+        )
     return coupon, None
 
 
@@ -105,7 +126,8 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
                 + f'. Only {available} left. Please update your cart.'
             )
 
-    coupon, coupon_error = resolve_coupon(coupon_code)
+    subtotal = cart.subtotal()
+    coupon, coupon_error = resolve_coupon(coupon_code, subtotal)
     if coupon_error:
         raise CheckoutError(coupon_error)
 
@@ -117,7 +139,7 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
         if shipping_method is None:
             raise CheckoutError('Please choose a valid shipping method.')
 
-    totals = compute_totals(cart.subtotal(), coupon, shipping_method)
+    totals = compute_totals(subtotal, coupon, shipping_method)
 
     order = Order(
         user=user,
@@ -229,6 +251,11 @@ def cancel_order(order: Order, *, changed_by=None, notify: bool = True) -> None:
     if not order.can_be_cancelled_by_customer:
         raise CheckoutError('This order can no longer be cancelled.')
 
+    # A cancelled order must not keep burning a limited coupon redemption.
+    coupon_was_redeemed = bool(order.coupon_id) and order.payment_status in {
+        PaymentStatus.PAID, PaymentStatus.COD_PENDING,
+    }
+
     restore_order_stock(order)
 
     # If money was already captured online, flip the transaction + order to
@@ -245,6 +272,10 @@ def cancel_order(order: Order, *, changed_by=None, notify: bool = True) -> None:
         note='Cancelled by ' + ('admin' if changed_by and changed_by.is_staff else 'customer'),
         notify_customer=False,
     )
+    if coupon_was_redeemed:
+        Coupon.objects.filter(pk=order.coupon_id, used_count__gt=0).update(
+            used_count=F('used_count') - 1,
+        )
     if notify:
         from .emails import send_order_cancelled_email
 
