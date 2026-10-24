@@ -118,8 +118,11 @@ def address_create(request):
                 return redirect(next_url)
             return redirect('accounts:address_list')
     else:
-        form = AddressForm(initial={'full_name': request.user.get_full_name(),
-                                    'phone': request.user.profile.phone})
+        form = AddressForm(initial={
+            'full_name': request.user.get_full_name(),
+            'phone': request.user.profile.phone,
+            'country': 'India',
+        })
     return render(request, 'accounts/address_form.html', {
         'form': form, 'next': next_url, 'is_create': True,
     })

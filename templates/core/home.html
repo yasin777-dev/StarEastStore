@@ -27,24 +27,25 @@
         </div>
       </div>
       <div class="col-lg-6">
-        {% for product in featured_products|slice:':3' %}
-          {% if forloop.first %}
+        {% if featured_products %}
           <div class="se-hero-cards d-none d-lg-grid">
             {% for p in featured_products|slice:':3' %}
-            <div class="se-hero-card {% if forloop.counter == 2 %}offset-up{% endif %} {% if forloop.counter == 3 %}offset-down{% endif %}">
+            <a class="se-hero-card{% if forloop.counter == 2 %} offset-up{% endif %}{% if forloop.counter == 3 %} offset-down{% endif %}"
+               href="{{ p.get_absolute_url }}" aria-label="View {{ p.name }}">
               {% with primary=p.primary_image %}
                 {% if primary and primary.image %}
-                  <img src="{{ primary.image.url }}" alt="{{ p.name }}">
+                  <img src="{{ primary.image.url }}" alt="{{ primary.alt_text|default:p.name }}" loading="lazy">
+                {% else %}
+                  <span class="se-hero-card-placeholder"><i class="bi bi-image"></i></span>
                 {% endif %}
               {% endwith %}
-              <div class="p-2 text-center small fw-semibold">{{ p.name }}</div>
-            </div>
+              <span class="se-hero-card-name">{{ p.name }}</span>
+            </a>
             {% endfor %}
           </div>
-          {% endif %}
-        {% empty %}
+        {% else %}
           <div class="se-hero-placeholder d-none d-lg-block"></div>
-        {% endfor %}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -94,6 +95,27 @@
   <div class="container py-5">
     <div class="row align-items-center g-4">
       <div class="col-lg-4">
+        <a class="se-sale-brand mb-4" href="{% url 'core:home' %}" aria-label="{{ SHOP_NAME }} home">
+          <span class="se-sale-brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="presentation" focusable="false">
+              <defs>
+                <linearGradient id="seSaleLogoGradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ffffff"/>
+                  <stop offset="55%" stop-color="#e0e7ff"/>
+                  <stop offset="100%" stop-color="#fbcfe8"/>
+                </linearGradient>
+              </defs>
+              <path d="M24 4l5.4 14.6L44 24l-14.6 5.4L24 44l-5.4-14.6L4 24l14.6-5.4z"
+                    fill="url(#seSaleLogoGradient)"/>
+              <path d="M37 7.5l1.7 4.3 4.3 1.7-4.3 1.7-1.7 4.3-1.7-4.3-4.3-1.7 4.3-1.7z"
+                    fill="#fff" opacity=".85"/>
+            </svg>
+          </span>
+          <span class="se-sale-brand-text">
+            <span class="se-sale-brand-name">{{ SHOP_NAME }}</span>
+            <span class="se-sale-brand-tagline">{{ SHOP_TAGLINE }}</span>
+          </span>
+        </a>
         <span class="badge se-badge-sale fs-6 mb-2">Limited time</span>
         <h2 class="text-white fw-bold">Up to 50% off</h2>
         <p class="text-white-50 mb-4">Grab today's deals before they're gone. All sale items clearly marked with the discount.</p>

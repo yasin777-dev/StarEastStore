@@ -208,7 +208,7 @@ class Command(BaseCommand):
                 user=customer, full_name='Demo Customer', phone='+1 555 010 7777',
                 address_line_1='42 Harbour Lane', address_line_2='Suite 7',
                 city='Portside', state='CA', postal_code='94000',
-                country='United States', is_default=True,
+                country='India', is_default=True,
             )
         # Extra reviewers for a natural review section.
         for index in range(1, 5):
@@ -372,7 +372,7 @@ class Command(BaseCommand):
                 shipping_address_line_1='42 Harbour Lane',
                 shipping_address_line_2='Suite 7', shipping_city='Portside',
                 shipping_state='CA', shipping_postal_code='94000',
-                shipping_country='United States',
+                shipping_country='India',
                 subtotal=subtotal, tax=tax, shipping_fee=shipping_fee, total=total,
                 shipping_method=ShippingMethod.objects.first(),
                 shipping_method_name='Standard shipping',

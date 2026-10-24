@@ -12,16 +12,16 @@
             <p class="text-secondary small mb-0">One account for orders, wishlist and faster checkout.</p>
           </div>
           {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
-          <form method="post" novalidate>
+          <form method="post" id="registerForm" novalidate>
             {% csrf_token %}
             <div class="row g-3">
               <div class="col-md-6">
                 <label for="id_first_name" class="form-label">First name</label>
-                <input type="text" name="first_name" id="id_first_name" class="form-control" value="{{ form.first_name.value|default:'' }}" maxlength="150">
+                <input type="text" name="first_name" id="id_first_name" class="form-control" value="{{ form.first_name.value|default:'' }}" maxlength="150" autocomplete="given-name">
               </div>
               <div class="col-md-6">
                 <label for="id_last_name" class="form-label">Last name</label>
-                <input type="text" name="last_name" id="id_last_name" class="form-control" value="{{ form.last_name.value|default:'' }}" maxlength="150">
+                <input type="text" name="last_name" id="id_last_name" class="form-control" value="{{ form.last_name.value|default:'' }}" maxlength="150" autocomplete="family-name">
               </div>
               <div class="col-12">
                 <label for="id_email" class="form-label">Email address <span class="text-danger">*</span></label>
@@ -30,10 +30,15 @@
                 {% for error in form.email.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
               </div>
               <div class="col-12">
-                <label for="id_phone" class="form-label">Phone</label>
+                <label for="id_phone" class="form-label">Phone number <span class="text-danger">*</span></label>
                 <input type="tel" name="phone" id="id_phone" class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
-                       value="{{ form.phone.value|default:'' }}" maxlength="20">
-                {% for error in form.phone.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                       value="{{ form.phone.value|default:'' }}" required autocomplete="tel"
+                       inputmode="numeric" maxlength="10" pattern="[0-9]{10}" placeholder="9876543210"
+                       aria-describedby="phoneHelp">
+                <div class="invalid-feedback" id="phoneError">
+                  {% for error in form.phone.errors %}{{ error }}{% endfor %}
+                </div>
+                <div class="form-text" id="phoneHelp">Enter a 10-digit mobile number (digits only).</div>
               </div>
               <div class="col-md-6">
                 <label for="id_password1" class="form-label">Password <span class="text-danger">*</span></label>
@@ -41,9 +46,11 @@
                 {% for error in form.password1.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
               </div>
               <div class="col-md-6">
-                <label for="id_password2" class="form-label">Confirm password <span class="text-danger">*</span></label>
+                <label for="id_password2" class="form-label">Confirm your password <span class="text-danger">*</span></label>
                 <input type="password" name="password2" id="id_password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" required autocomplete="new-password">
-                {% for error in form.password2.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                <div class="invalid-feedback" id="password2Error">
+                  {% for error in form.password2.errors %}{{ error }}{% endfor %}
+                </div>
               </div>
             </div>
             <button type="submit" class="btn se-btn-primary w-100 btn-lg mt-4">Create account</button>
@@ -56,4 +63,71 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+  var form = document.getElementById('registerForm');
+  if (!form) return;
+
+  var phone = document.getElementById('id_phone');
+  var password1 = document.getElementById('id_password1');
+  var password2 = document.getElementById('id_password2');
+  var phoneError = document.getElementById('phoneError');
+  var passwordError = document.getElementById('password2Error');
+  var defaultPhoneError = phoneError.textContent.trim() || 'Enter a valid 10-digit phone number.';
+  var defaultPasswordError = passwordError.textContent.trim() || 'The two passwords do not match.';
+
+  // Keep the phone field numeric while typing.
+  phone.addEventListener('input', function () {
+    var digits = phone.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 10);
+    if (phone.value !== digits) phone.value = digits;
+  });
+
+  function setError(input, box, message) {
+    input.classList.add('is-invalid');
+    box.textContent = message;
+  }
+
+  function clearError(input, box, fallback) {
+    input.classList.remove('is-invalid');
+    box.textContent = fallback;
+  }
+
+  function validatePhone() {
+    var digits = phone.value.replace(/\D/g, '');
+    if (digits.length !== 10) {
+      setError(phone, phoneError,
+        'Phone number must be exactly 10 digits - you entered ' + digits.length + '.');
+      return false;
+    }
+    clearError(phone, phoneError, defaultPhoneError);
+    return true;
+  }
+
+  function validatePasswords() {
+    if (!password1.value || password1.value !== password2.value) {
+      setError(password2, passwordError, defaultPasswordError);
+      return false;
+    }
+    clearError(password2, passwordError, defaultPasswordError);
+    return true;
+  }
+
+  phone.addEventListener('blur', validatePhone);
+  password2.addEventListener('input', validatePasswords);
+
+  form.addEventListener('submit', function (event) {
+    var phoneOk = validatePhone();
+    var passwordOk = validatePasswords();
+    if (!phoneOk || !passwordOk) {
+      event.preventDefault();
+      event.stopPropagation();
+      (!phoneOk ? phone : password2).focus();
+    }
+  });
+})();
+</script>
 {% endblock %}

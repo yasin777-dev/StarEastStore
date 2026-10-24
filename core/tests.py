@@ -35,6 +35,17 @@ class StaticPageTests(TestCase):
         response = self.client.get(reverse('core:home'))
         self.assertContains(response, 'Featured Item')
 
+    def test_hero_featured_cards_link_to_product_detail(self):
+        category = Category.objects.create(name='Hero Cat')
+        product = Product.objects.create(
+            name='Hero Item', sku='HH-1', category=category,
+            description='Hero', price=Decimal('10.00'), stock_quantity=5,
+            featured=True,
+        )
+        response = self.client.get(reverse('core:home'))
+        self.assertContains(response, 'class="se-hero-card"')
+        self.assertContains(response, f'href="{product.get_absolute_url()}"')
+
 
 class ContactTests(TestCase):
     def setUp(self):
