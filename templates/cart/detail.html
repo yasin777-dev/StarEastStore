@@ -79,6 +79,9 @@
           <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Shipping</span><span class="text-secondary small">Calculated at checkout</span></div>
           <hr>
           <div class="d-flex justify-content-between fs-5 fw-bold"><span>Total</span><span>{{ CURRENCY }}{{ subtotal|floatformat:2 }}</span></div>
+          <div class="mt-3">
+            {% include 'partials/coupon_offers.html' %}
+          </div>
           <p class="text-secondary small mt-2 mb-0"><i class="bi bi-tag me-1"></i>Coupons can be applied at checkout.</p>
           <a href="{% url 'orders:checkout' %}" class="btn se-btn-primary w-100 mt-3">
             <i class="bi bi-lock me-2"></i>Proceed to checkout

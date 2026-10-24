@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
+from django.utils import timezone
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 
 
 from .models import (
@@ -72,6 +73,33 @@ def compute_totals(
 def format_money(amount: Decimal) -> str:
     """Render an amount with the shop currency prefix (e.g. ₹12.50)."""
     return f'{settings.CURRENCY}{amount:,.2f}'
+
+
+def available_coupons(subtotal: Decimal | None = None) -> list[Coupon]:
+    """
+    Coupons shoppers are allowed to see: active, public and inside their
+    validity window, with redemptions left.
+
+    When a ``subtotal`` is supplied each coupon is annotated with ``eligible``
+    and ``shortfall`` (how much more the cart needs) so the storefront can nudge
+    shoppers instead of letting them hit a rejection at checkout.
+    """
+    now = timezone.now()
+    coupons = (
+        Coupon.objects.filter(is_active=True, is_public=True, valid_from__lte=now)
+        .filter(Q(valid_until__isnull=True) | Q(valid_until__gte=now))
+        .filter(Q(usage_limit__isnull=True) | Q(used_count__lt=F('usage_limit')))
+    )
+    offers = []
+    for coupon in coupons:
+        coupon.eligible = subtotal is None or subtotal >= coupon.minimum_order_amount
+        coupon.shortfall = (
+            Decimal('0.00') if subtotal is None
+            else max(Decimal('0.00'), coupon.minimum_order_amount - subtotal)
+        )
+        offers.append(coupon)
+    offers.sort(key=lambda c: (not c.eligible, c.minimum_order_amount, -c.discount_value))
+    return offers
 
 
 def resolve_coupon(

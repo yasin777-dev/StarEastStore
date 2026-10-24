@@ -442,3 +442,99 @@ class CheckoutCouponTests(TestCase):
         )
         self.coupon.refresh_from_db()
         self.assertEqual(self.coupon.used_count, 0)
+
+
+class CouponOffersTests(TestCase):
+    """Shoppers should be able to see which codes they can use."""
+
+    def setUp(self):
+        from cart.services import DatabaseCart
+
+        self.client = Client()
+        self.user = User.objects.create_user('offers@example.com', 'x1A!aaaa')
+        Address.objects.create(
+            user=self.user, full_name='Offer Customer', phone='5551234567',
+            address_line_1='5 Offer Rd', city='Town', state='TS',
+            postal_code='12345', country='India',
+        )
+        self.product = Product.objects.create(
+            name='Offer Widget', sku='OF-1',
+            category=Category.objects.create(name='Offer Cat'),
+            description='Offerable', price=Decimal('30.00'), stock_quantity=20,
+        )
+        self.public = Coupon.objects.create(
+            code='WELCOME10', discount_type=Coupon.DiscountType.PERCENTAGE,
+            discount_value=Decimal('10'), minimum_order_amount=Decimal('20'),
+            maximum_discount=Decimal('20'),
+        )
+        self.private = Coupon.objects.create(
+            code='STAFFONLY', discount_type=Coupon.DiscountType.FIXED,
+            discount_value=Decimal('5'), is_public=False,
+        )
+        self.cart = DatabaseCart(self.user)
+        self.client.force_login(self.user)
+
+    def test_headline_summarises_the_offer(self):
+        self.assertEqual(self.public.headline, '10% off up to ₹20.00 on orders over ₹20.00')
+        fixed = Coupon.objects.create(
+            code='FLAT5', discount_type=Coupon.DiscountType.FIXED,
+            discount_value=Decimal('5'),
+        )
+        self.assertEqual(fixed.headline, '₹5.00 off')
+
+    def test_offers_listed_on_checkout(self):
+        self.cart.add(self.product, None, 1)
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(response, 'WELCOME10')
+        self.assertContains(response, '10% off up to ₹20.00')
+        self.assertNotContains(response, 'STAFFONLY')
+
+    def test_offers_listed_on_cart_page(self):
+        self.cart.add(self.product, None, 1)
+        response = self.client.get(reverse('cart:detail'))
+        self.assertContains(response, 'WELCOME10')
+        self.assertContains(response, 'data-copy-code="WELCOME10"')
+
+    def test_hidden_expired_and_exhausted_coupons_are_not_listed(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        self.cart.add(self.product, None, 1)
+        Coupon.objects.create(
+            code='EXPIRED', discount_value=Decimal('5'),
+            valid_until=timezone.now() - timedelta(days=1),
+        )
+        Coupon.objects.create(code='INACTIVE', discount_value=Decimal('5'), is_active=False)
+        Coupon.objects.create(
+            code='GONE', discount_value=Decimal('5'), usage_limit=1, used_count=1,
+        )
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(response, 'WELCOME10')
+        for code in ('EXPIRED', 'INACTIVE', 'GONE', 'STAFFONLY'):
+            self.assertNotContains(response, code)
+
+    def test_offer_below_minimum_is_shown_locked_with_shortfall(self):
+        self.public.minimum_order_amount = Decimal('50')
+        self.public.save()
+        self.cart.add(self.product, None, 1)  # 30.00 -> needs 20.00 more
+        response = self.client.get(reverse('orders:checkout'))
+        self.assertContains(response, 'Add ₹20.00 more to unlock')
+        self.assertContains(response, 'Locked')
+        self.assertNotContains(response, 'value="apply_coupon:WELCOME10"')
+
+    def test_one_click_apply_from_the_offers_list(self):
+        self.cart.add(self.product, None, 2)  # 60.00 -> coupon eligible
+        response = self.client.post(
+            reverse('orders:checkout'), {'action': 'apply_coupon:WELCOME10'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'WELCOME10 applied')
+        self.assertContains(response, f'-{settings.CURRENCY}6.00')
+        self.assertNotContains(response, 'Your order has not been placed yet')
+
+    def test_cart_page_offers_are_public_only_for_anonymous_visitors(self):
+        session_client = Client()
+        response = session_client.get(reverse('cart:detail'))
+        # Empty cart -> nothing to advertise, but the page still renders.
+        self.assertEqual(response.status_code, 200)

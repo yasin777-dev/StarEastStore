@@ -92,6 +92,10 @@ class Coupon(models.Model):
     valid_from = models.DateTimeField(default=timezone.now)
     valid_until = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    is_public = models.BooleanField(
+        default=True,
+        help_text='Advertise this code in the storefront offers list.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -142,6 +146,22 @@ class Coupon(models.Model):
             discount = self.discount_value
         # Never discount more than the subtotal itself.
         return min(discount, subtotal).quantize(Decimal('0.01'))
+
+    @property
+    def headline(self) -> str:
+        """Shopper-facing summary, e.g. '10% off up to ₹20 on orders over ₹20'."""
+        currency = settings.CURRENCY
+        # 10.00 -> "10", 12.50 -> "12.5"
+        value = f'{self.discount_value:.2f}'.rstrip('0').rstrip('.')
+        if self.discount_type == self.DiscountType.PERCENTAGE:
+            text = f'{value}% off'
+            if self.maximum_discount is not None:
+                text += f' up to {currency}{self.maximum_discount:,.2f}'
+        else:
+            text = f'{currency}{self.discount_value:,.2f} off'
+        if self.minimum_order_amount > 0:
+            text += f' on orders over {currency}{self.minimum_order_amount:,.2f}'
+        return text
 
     def mark_used(self) -> None:
         """Increment the redemption counter (called once, on payment success)."""

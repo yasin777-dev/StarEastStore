@@ -132,6 +132,8 @@
             <hr>
             <div class="d-flex justify-content-between fs-5 fw-bold mb-3"><span>Total</span><span>{{ CURRENCY }}{{ grand_total|floatformat:2 }}</span></div>
 
+            {% include 'partials/coupon_offers.html' with can_apply=True %}
+
             <div class="se-coupon-box mt-1">
               {% if applied_coupon %}
               <div class="d-flex align-items-center justify-content-between gap-2">

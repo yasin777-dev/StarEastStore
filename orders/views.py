@@ -15,6 +15,7 @@ from .forms import CheckoutForm
 from .models import Order, PaymentStatus, ShippingMethod
 from .services import (
     CheckoutError,
+    available_coupons,
     cancel_order,
     compute_totals,
     format_money,
@@ -62,8 +63,11 @@ def checkout(request):
 
     # Applying or removing a coupon must never require the rest of the
     # checkout form (address, shipping, payment) to be filled in first.
-    if action in COUPON_ACTIONS:
+    if action in COUPON_ACTIONS or action.startswith('apply_coupon:'):
         data = request.POST.copy()
+        if action.startswith('apply_coupon:'):
+            # One-click apply from the offers list: the code is in the action.
+            data['coupon_code'] = action.split(':', 1)[1]
         requested = (data.get('coupon_code') or '').strip()
         if action == 'remove_coupon':
             data['coupon_code'] = ''
@@ -168,6 +172,7 @@ def _checkout_context(request, form, lines, subtotal, methods, coupon_code='',
         'addresses': request.user.addresses.all(),
         'coupon_code': coupon_code,
         'applied_coupon': coupon,
+        'coupon_offers': available_coupons(subtotal),
         'show_form_errors': show_form_errors,
     }
 
