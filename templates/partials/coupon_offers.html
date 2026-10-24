@@ -1,0 +1,50 @@
+{% comment %}
+Public coupon offers. Include with:
+
+  {% include 'partials/coupon_offers.html' %}                          (cart: copy the code)
+  {% include 'partials/coupon_offers.html' with can_apply=True %}      (checkout: apply in one click)
+
+`coupon_offers` comes from orders.services.available_coupons(subtotal), which
+only exposes active, in-date, public coupons and marks each one with
+`eligible` / `shortfall` for the current cart.
+{% endcomment %}
+{% if coupon_offers %}
+<div class="se-offers">
+  <p class="small fw-semibold mb-2">
+    <i class="bi bi-ticket-perforated me-1"></i>
+    {% if can_apply %}Available coupons{% else %}Available coupon codes{% endif %}
+    <span class="text-secondary fw-normal">(optional)</span>
+  </p>
+  {% for coupon in coupon_offers %}
+  <div class="se-offer{% if not coupon.eligible %} se-offer-locked{% endif %}">
+    <div class="se-offer-main">
+      <code class="se-offer-code">{{ coupon.code }}</code>
+      <span class="se-offer-desc">{{ coupon.headline }}</span>
+      {% if coupon.audience_note %}
+      <span class="se-offer-note"><i class="bi bi-person-check me-1"></i>{{ coupon.audience_note }}</span>
+      {% endif %}
+      {% if not coupon.eligible %}
+      <span class="se-offer-hint">
+        <i class="bi bi-lock me-1"></i>Add {{ CURRENCY }}{{ coupon.shortfall|floatformat:2 }} more to unlock
+      </span>
+      {% endif %}
+    </div>
+    {% if can_apply %}
+      {% if applied_coupon and applied_coupon.pk == coupon.pk %}
+      <span class="badge se-badge-applied"><i class="bi bi-check-lg me-1"></i>Applied</span>
+      {% elif coupon.eligible %}
+      <button type="submit" name="action" value="apply_coupon:{{ coupon.code }}"
+              class="btn btn-sm se-btn-outline">Apply</button>
+      {% else %}
+      <button type="button" class="btn btn-sm se-btn-outline" disabled>Locked</button>
+      {% endif %}
+    {% else %}
+      <button type="button" class="btn btn-sm se-btn-outline" data-copy-code="{{ coupon.code }}">Copy</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if not can_apply %}
+  <p class="text-secondary small mb-0 mt-2">Apply any of these codes at checkout.</p>
+  {% endif %}
+</div>
+{% endif %}

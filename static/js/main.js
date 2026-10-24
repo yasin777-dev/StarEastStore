@@ -51,6 +51,29 @@
     bootstrap.Modal.getOrCreateInstance(orderSuccessModal).show();
   }
 
+  // Copy a coupon code to the clipboard (cart page offers list).
+  document.querySelectorAll('[data-copy-code]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.dataset.copyCode;
+      var done = function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.disabled = true;
+        setTimeout(function () { btn.textContent = original; btn.disabled = false; }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done);
+      } else {
+        var input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        try { document.execCommand('copy'); done(); } catch (err) { /* ignore */ }
+        document.body.removeChild(input);
+      }
+    });
+  });
+
   // Dismiss alerts automatically after 6 seconds.
   document.querySelectorAll('.alert-dismissible').forEach(function (alertEl) {
     setTimeout(function () {

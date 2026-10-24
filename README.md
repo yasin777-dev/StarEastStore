@@ -18,7 +18,7 @@ inventory updates → order history.
 | **Cart** | DB-backed cart for customers, session cart for guests, automatic merge at login, stock-aware quantities |
 | **Checkout** | Address selection/creation, shipping methods, coupons, order notes, backend-only price computation |
 | **Payments** | Gateway architecture: **Stripe Checkout**, **Razorpay**, **cash on delivery** and a built-in **simulated gateway** for demos. Server-side verification, idempotent completion, webhooks, full transaction records |
-| **Coupons** | Percentage/fixed discounts, expiry, minimum order, maximum discount cap, usage limits |
+| **Coupons** | Percentage/fixed discounts, expiry, minimum order, maximum discount cap, global and per-customer usage limits, first-order-only welcome gifts, public offers list on the cart and checkout pages (copy / one-click apply) |
 | **Orders** | Status workflow (pending → confirmed → processing → shipped → delivered / cancelled / refunded), item snapshots, audit trail, customer cancellation with stock restoration |
 | **Inventory** | Row-level-locked stock reduction (`select_for_update`), low-stock thresholds, restoration on cancel/refund, overselling protection |
 | **Reviews** | 1–5 ratings with distribution bars, verified-purchase enforcement, one review per user per product (editable) |
@@ -28,7 +28,7 @@ inventory updates → order history.
 | **API** | DRF endpoints for products/categories/brands (filter+search+ordering), cart, wishlist, orders, reviews, token auth |
 | **Email** | Welcome, password reset, order confirmation, payment confirmation, shipped/delivered/cancelled notifications — all configurable via env vars |
 | **Security** | CSRF, XSS/SQLi-safe ORM, clickjacking protection, upload validation (extension + magic bytes + size), rate limiting, hardened production settings, `.env` secrets |
-| **Testing** | 173 automated tests covering registration, cart, coupons, checkout, payment verification, inventory, permissions, reviews, wishlist, APIs |
+| **Testing** | 234 automated tests covering registration, cart, coupons, checkout, payment verification, inventory, permissions, reviews, wishlist, APIs |
 
 ## Technology
 

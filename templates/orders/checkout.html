@@ -5,7 +5,7 @@
   <h1 class="se-section-title mb-4"><i class="bi bi-credit-card-2-front me-2"></i>Checkout</h1>
   <form method="post" action="{% url 'orders:checkout' %}" id="checkoutForm" novalidate>
     {% csrf_token %}
-    {% if form.errors %}
+    {% if form.errors and show_form_errors %}
     <div class="alert alert-danger" role="alert">
       <h2 class="h6 fw-bold">Your order has not been placed yet</h2>
       <p class="mb-2">Please correct the following and try again. Your items are still in your cart.</p>
@@ -119,19 +119,45 @@
             <hr>
             <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Subtotal</span><span>{{ CURRENCY }}{{ subtotal|floatformat:2 }}</span></div>
             {% if discount %}
-            <div class="d-flex justify-content-between mb-2 text-success"><span>Coupon {{ coupon_code }}</span><span>-{{ CURRENCY }}{{ discount|floatformat:2 }}</span></div>
+            <div class="d-flex justify-content-between mb-2 text-success">
+              <span>Coupon {% if applied_coupon %}{{ applied_coupon.code }}{% else %}{{ coupon_code }}{% endif %}</span>
+              <span>-{{ CURRENCY }}{{ discount|floatformat:2 }}</span>
+            </div>
             {% endif %}
-            <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Shipping</span><span>{% if shipping_fee %}{{ CURRENCY }}{{ shipping_fee|floatformat:2 }}{% else %}Select method{% endif %}</span></div>
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-secondary">Shipping</span>
+              <span>{% if shipping_method %}{% if shipping_fee %}{{ CURRENCY }}{{ shipping_fee|floatformat:2 }}{% else %}<span class="text-success fw-semibold">Free</span>{% endif %}{% else %}Select method{% endif %}</span>
+            </div>
             <div class="d-flex justify-content-between mb-2"><span class="text-secondary">Tax</span><span>{{ CURRENCY }}{{ tax|floatformat:2 }}</span></div>
             <hr>
             <div class="d-flex justify-content-between fs-5 fw-bold mb-3"><span>Total</span><span>{{ CURRENCY }}{{ grand_total|floatformat:2 }}</span></div>
 
-            <label class="form-label fw-semibold" for="id_coupon_code"><i class="bi bi-ticket-perforated me-1"></i>Coupon code</label>
-            <div class="input-group mb-1">
-              {{ form.coupon_code }}
-              <button type="submit" name="action" value="apply_coupon" class="btn se-btn-outline">Apply</button>
+            {% include 'partials/coupon_offers.html' with can_apply=True %}
+
+            <div class="se-coupon-box mt-1">
+              {% if applied_coupon %}
+              <div class="d-flex align-items-center justify-content-between gap-2">
+                <span class="fw-semibold text-success">
+                  <i class="bi bi-check-circle-fill me-1"></i>{{ applied_coupon.code }} applied
+                </span>
+                <button type="submit" name="action" value="remove_coupon"
+                        class="btn btn-sm btn-link text-danger p-0 text-decoration-none">Remove</button>
+              </div>
+              <input type="hidden" name="coupon_code" value="{{ applied_coupon.code }}">
+              <p class="text-secondary small mb-0 mt-1">You save {{ CURRENCY }}{{ discount|floatformat:2 }} on this order.</p>
+              {% else %}
+              <label class="form-label fw-semibold" for="id_coupon_code">
+                <i class="bi bi-ticket-perforated me-1"></i>Coupon code
+                <span class="text-secondary fw-normal small">(optional)</span>
+              </label>
+              <div class="input-group mb-1">
+                {{ form.coupon_code }}
+                <button type="submit" name="action" value="apply_coupon" class="btn se-btn-outline">Apply</button>
+              </div>
+              <p class="text-secondary small mb-0">No code? Just leave this blank — you can still place your order.</p>
+              {% endif %}
+              {% if form.coupon_code.errors %}<div class="text-danger small">{{ form.coupon_code.errors.0 }}</div>{% endif %}
             </div>
-            {% if form.coupon_code.errors %}<div class="text-danger small">{{ form.coupon_code.errors.0 }}</div>{% endif %}
 
             <button type="submit" name="action" value="place_order" class="btn se-btn-primary w-100 mt-3"
                     {% if not addresses or not shipping_available or not payment_methods %}disabled{% endif %}>
