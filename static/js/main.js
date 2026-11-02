@@ -51,6 +51,32 @@
     bootstrap.Modal.getOrCreateInstance(orderSuccessModal).show();
   }
 
+  // Scroll-reveal for product cards and section blocks.
+  // Progressive enhancement: if IntersectionObserver is missing, or reduced
+  // motion is requested, everything simply stays visible.
+  var prefersReduced = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !prefersReduced) {
+    var revealables = document.querySelectorAll(
+      '.se-product-card, .se-category-card, .se-hero-card, .se-order-card'
+    );
+    revealables.forEach(function (el) { el.classList.add('se-reveal'); });
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('se-reveal-in');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -40px 0px', threshold: 0.05 });
+    revealables.forEach(function (el, i) {
+      // Small stagger so a grid lights up in sequence, capped so late rows
+      // do not feel laggy.
+      el.style.transitionDelay = Math.min(i % 4, 3) * 60 + 'ms';
+      observer.observe(el);
+    });
+  }
+
   // Dismiss alerts automatically after 6 seconds.
   document.querySelectorAll('.alert-dismissible').forEach(function (alertEl) {
     setTimeout(function () {
