@@ -23,13 +23,6 @@ class CheckoutForm(forms.Form):
             'invalid_choice': 'This shipping method is no longer available. Please choose another.',
         },
     )
-    coupon_code = forms.CharField(
-        max_length=40, required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control text-uppercase',
-            'placeholder': 'Enter coupon code',
-        }),
-    )
     payment_method = forms.ChoiceField(
         widget=forms.RadioSelect,
         error_messages={

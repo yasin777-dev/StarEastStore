@@ -26,7 +26,6 @@ urlpatterns = [
     path('payment/', include('payments.urls')),
     path('reviews/', include('reviews.urls')),
     path('wishlist/', include('wishlist.urls')),
-    path('api/', include('api.urls')),
 ]
 
 # User uploads (product images, brand logos, avatars).

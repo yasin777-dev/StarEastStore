@@ -90,7 +90,7 @@ def verify_and_complete(reference: str, gateway_code: str, data: dict) -> Paymen
     """
     Verify a payment server-side and complete the order. Idempotent: repeated
     calls (browser return + webhook) are safe and will not double-charge
-    stock or coupons.
+    or double-deduct stock.
     """
     from orders.services import reduce_order_stock, record_status_change
     from orders.models import OrderStatus
@@ -123,7 +123,7 @@ def verify_and_complete(reference: str, gateway_code: str, data: dict) -> Paymen
         txn.save(update_fields=['status', 'failure_reason', 'updated_at'])
         return txn
 
-    # Verified by the gateway: capture money state, inventory and coupon.
+    # Verified by the gateway: capture money state and inventory.
     txn.status = TransactionStatus.SUCCEEDED
     txn.save(update_fields=['status', 'updated_at'])
 
@@ -153,9 +153,6 @@ def verify_and_complete(reference: str, gateway_code: str, data: dict) -> Paymen
                              note='Payment verified - order confirmed')
     else:
         order.save(update_fields=['payment_status', 'updated_at'])
-
-    if stock_ok and order.coupon_id:
-        order.coupon.mark_used()
 
     _send_success_emails(order)
     return txn
@@ -210,8 +207,4 @@ def confirm_cash_on_delivery(order) -> None:
     order.save(update_fields=['payment_status', 'status', 'updated_at'])
     record_status_change(order, old_status, OrderStatus.CONFIRMED,
                          note='Cash on delivery - order confirmed')
-    # Count the redemption here too, otherwise limited coupons would never
-    # hit their usage_limit on cash-on-delivery orders.
-    if order.coupon_id:
-        order.coupon.mark_used()
     _send_success_emails(order)

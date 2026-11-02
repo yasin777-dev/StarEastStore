@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from accounts.models import Address
 from cart.services import DatabaseCart
-from orders.models import Coupon, Order, OrderStatus, ShippingMethod
+from orders.models import Order, OrderStatus, ShippingMethod
 from products.models import Category, Product
 
 from .gateways import GatewayError, get_gateway
@@ -62,13 +62,12 @@ class PaymentFlowTestBase(TestCase):
     def _add_to_cart(self, qty=2):
         DatabaseCart(self.user).add(self.product, None, qty)
 
-    def _place_order(self, payment_method='simulated', coupon_code=''):
+    def _place_order(self, payment_method='simulated'):
         self._login()
         self._add_to_cart()
         response = self.client.post(reverse('orders:checkout'), {
             'address_id': self.address.pk, 'shipping_method': self.shipping.pk,
-            'payment_method': payment_method, 'coupon_code': coupon_code,
-            'action': 'place_order',
+            'payment_method': payment_method, 'action': 'place_order',
         })
         assert response.status_code == 302, response.content[:400]
         return Order.objects.get(user=self.user)
@@ -127,20 +126,6 @@ class SimulatedGatewayFlowTests(PaymentFlowTestBase):
         self.assertEqual(first.pk, second.pk)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_quantity, 8)  # deducted exactly once
-
-    def test_coupon_marked_used_exactly_once(self):
-        coupon = Coupon.objects.create(
-            code='PAY10', discount_type=Coupon.DiscountType.PERCENTAGE,
-            discount_value=Decimal('10'), minimum_order_amount=Decimal('10'),
-        )
-        order = self._place_order('simulated', coupon_code='PAY10')
-        self.assertIsNotNone(order.coupon)
-        txn = order.transactions.latest('created_at')
-        verify_and_complete(txn.reference, 'simulated', {'outcome': 'success'})
-        # Webhook-style duplicate call:
-        verify_and_complete(txn.reference, 'simulated', {'outcome': 'success'})
-        coupon.refresh_from_db()
-        self.assertEqual(coupon.used_count, 1)
 
     def test_stock_race_is_guarded(self):
         """verify_and_complete refuses to oversell when stock ran out."""
