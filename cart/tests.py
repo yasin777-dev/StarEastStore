@@ -218,3 +218,65 @@ def _get_csrf(client, url):
     from django.middleware.csrf import get_token
 
     return get_token(response.wsgi_request)
+
+
+class CartMalformedInputTests(TestCase):
+    """Tampered/garbage ids must produce a friendly message, never a 500.
+
+    Regression guard: ``filter(pk='abc')`` raises ValueError inside the ORM,
+    which used to escape the view and blow up the cart pages.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user('malformed@example.com', 'x1A!aaaa')
+        self.product = make_product('Malformed Item', stock=5)
+        self.client.force_login(self.user)
+
+    def test_add_with_non_numeric_product_id(self):
+        response = self.client.post(reverse('cart:add'), {
+            'product_id': 'abc', 'quantity': 1,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(DatabaseCart(self.user).is_empty())
+
+    def test_add_with_non_numeric_variant_id(self):
+        response = self.client.post(reverse('cart:add'), {
+            'product_id': self.product.pk, 'variant_id': 'abc', 'quantity': 1,
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_add_with_negative_and_decimal_ids(self):
+        for bad in ['-5', '1.5', '', 'None', '0']:
+            response = self.client.post(reverse('cart:add'), {
+                'product_id': bad, 'quantity': 1,
+            })
+            self.assertEqual(response.status_code, 302, bad)
+
+    def test_update_with_non_numeric_variant_id(self):
+        DatabaseCart(self.user).add(self.product, None, 2)
+        response = self.client.post(reverse('cart:update'), {
+            'product_id': self.product.pk, 'variant_id': 'abc', 'quantity': 3,
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_remove_with_non_numeric_variant_id(self):
+        DatabaseCart(self.user).add(self.product, None, 2)
+        response = self.client.post(reverse('cart:remove'), {
+            'product_id': self.product.pk, 'variant_id': 'abc',
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_update_missing_line_reports_error_instead_of_crashing(self):
+        response = self.client.post(reverse('cart:update'), {
+            'product_id': 999999, 'quantity': 2,
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'not found')
+
+    def test_garbage_quantity_falls_back_to_one(self):
+        response = self.client.post(reverse('cart:add'), {
+            'product_id': self.product.pk, 'quantity': 'not-a-number',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(DatabaseCart(self.user).count(), 1)

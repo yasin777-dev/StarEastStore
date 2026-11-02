@@ -29,11 +29,19 @@ def _cart_lines(request):
 
 
 def _selected_shipping_method(request):
-    """Shipping method used for the live totals preview."""
+    """Shipping method used for the live totals preview.
+
+    The posted id is parsed leniently: a tampered or malformed value must fall
+    back to the default method rather than raising ValueError inside the ORM.
+    """
     if request.method == 'POST':
         raw = request.POST.get('shipping_method')
-        if raw:
-            method = ShippingMethod.objects.filter(pk=raw, is_active=True).first()
+        try:
+            pk = int(raw)
+        except (TypeError, ValueError):
+            pk = None
+        if pk is not None:
+            method = ShippingMethod.objects.filter(pk=pk, is_active=True).first()
             if method is not None:
                 return method
     return ShippingMethod.objects.filter(is_active=True).first()
