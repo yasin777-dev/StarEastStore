@@ -1,4 +1,4 @@
-"""Order, OrderItem, Coupon and ShippingMethod models (sections 8-11)."""
+"""Order, OrderItem and ShippingMethod models (sections 8-9)."""
 from __future__ import annotations
 
 from decimal import Decimal
@@ -61,170 +61,6 @@ class ShippingMethod(models.Model):
         return f'{self.name} ({self.price})'
 
 
-class Coupon(models.Model):
-    """Discount coupon validated entirely on the backend (section 11)."""
-
-    class DiscountType(models.TextChoices):
-        PERCENTAGE = 'percentage', 'Percentage'
-        FIXED = 'fixed', 'Fixed amount'
-
-    code = models.CharField(max_length=40, unique=True)
-    discount_type = models.CharField(
-        max_length=20, choices=DiscountType.choices, default=DiscountType.PERCENTAGE,
-    )
-    discount_value = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
-    )
-    minimum_order_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal('0.00'),
-        validators=[MinValueValidator(Decimal('0.00'))],
-    )
-    maximum_discount = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True,
-        validators=[MinValueValidator(Decimal('0.01'))],
-        help_text='Cap applied to percentage discounts. Leave empty for none.',
-    )
-    usage_limit = models.PositiveIntegerField(
-        blank=True, null=True, help_text='Total number of redemptions allowed.',
-    )
-    used_count = models.PositiveIntegerField(default=0)
-    valid_from = models.DateTimeField(default=timezone.now)
-    valid_until = models.DateTimeField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-    is_public = models.BooleanField(
-        default=True,
-        help_text='Advertise this code in the storefront offers list.',
-    )
-    first_order_only = models.BooleanField(
-        default=False,
-        help_text='Only redeemable by customers who have not ordered yet (welcome gift).',
-    )
-    per_user_limit = models.PositiveIntegerField(
-        blank=True, null=True,
-        help_text='Maximum redemptions per customer. Leave empty for unlimited.',
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self) -> str:
-        return self.code
-
-    def save(self, *args, **kwargs):
-        self.code = self.code.strip().upper()
-        super().save(*args, **kwargs)
-
-    # -- validation ---------------------------------------------------------
-    def is_valid_now(self) -> bool:
-        now = timezone.now()
-        if not self.is_active:
-            return False
-        if now < self.valid_from:
-            return False
-        if self.valid_until is not None and now > self.valid_until:
-            return False
-        if self.usage_limit is not None and self.used_count >= self.usage_limit:
-            return False
-        return True
-
-    def validation_error(self) -> str | None:
-        """Human-readable reason when invalid (None when valid)."""
-        now = timezone.now()
-        if not self.is_active:
-            return 'This coupon is not active.'
-        if now < self.valid_from:
-            return 'This coupon is not active yet.'
-        if self.valid_until is not None and now > self.valid_until:
-            return 'This coupon has expired.'
-        if self.usage_limit is not None and self.used_count >= self.usage_limit:
-            return 'This coupon has reached its usage limit.'
-        return None
-
-    def discount_for(self, subtotal: Decimal) -> Decimal:
-        """Compute the discount for a given subtotal. Returns Decimal('0')."""
-        if subtotal < self.minimum_order_amount:
-            return Decimal('0.00')
-        if self.discount_type == self.DiscountType.PERCENTAGE:
-            discount = subtotal * self.discount_value / Decimal('100')
-            if self.maximum_discount is not None:
-                discount = min(discount, self.maximum_discount)
-        else:
-            discount = self.discount_value
-        # Never discount more than the subtotal itself.
-        return min(discount, subtotal).quantize(Decimal('0.01'))
-
-    # -- per-customer rules ------------------------------------------------
-    def redemptions_by(self, user) -> int:
-        """How many live (non-cancelled) orders this customer placed with the code."""
-        if user is None or not getattr(user, 'pk', None):
-            return 0
-        return self.orders.filter(user=user).exclude(
-            status__in=[OrderStatus.CANCELLED, OrderStatus.REFUNDED],
-        ).count()
-
-    def user_validation_error(self, user) -> str | None:
-        """Per-customer restriction reason (None when the customer may use it)."""
-        if user is None or not getattr(user, 'pk', None):
-            return None
-        # Redemption limit first: "already used" is clearer than quoting the
-        # first-order rule to somebody who just claimed the gift.
-        if self.per_user_limit is not None:
-            used = self.redemptions_by(user)
-            if used >= self.per_user_limit:
-                if self.per_user_limit == 1:
-                    return (
-                        f'You have already used coupon "{self.code}". '
-                        'It can only be used once per customer.'
-                    )
-                return (
-                    f'Coupon "{self.code}" can be used at most '
-                    f'{self.per_user_limit} times per customer.'
-                )
-        if self.first_order_only:
-            ordered_before = Order.objects.filter(user=user).exclude(
-                status__in=[OrderStatus.CANCELLED, OrderStatus.REFUNDED],
-            ).exists()
-            if ordered_before:
-                return (
-                    f'Coupon "{self.code}" is a welcome gift for first orders only.'
-                )
-        return None
-
-    @property
-    def audience_note(self) -> str:
-        """Short note for the storefront offers list."""
-        notes = []
-        if self.first_order_only:
-            notes.append('First order only')
-        if self.per_user_limit == 1:
-            notes.append('Once per customer')
-        elif self.per_user_limit:
-            notes.append(f'Up to {self.per_user_limit} uses per customer')
-        return ' \u00b7 '.join(notes)
-
-    @property
-    def headline(self) -> str:
-        """Shopper-facing summary, e.g. '10% off up to ₹20 on orders over ₹20'."""
-        currency = settings.CURRENCY
-        # 10.00 -> "10", 12.50 -> "12.5"
-        value = f'{self.discount_value:.2f}'.rstrip('0').rstrip('.')
-        if self.discount_type == self.DiscountType.PERCENTAGE:
-            text = f'{value}% off'
-            if self.maximum_discount is not None:
-                text += f' up to {currency}{self.maximum_discount:,.2f}'
-        else:
-            text = f'{currency}{self.discount_value:,.2f} off'
-        if self.minimum_order_amount > 0:
-            text += f' on orders over {currency}{self.minimum_order_amount:,.2f}'
-        return text
-
-    def mark_used(self) -> None:
-        """Increment the redemption counter (called once, on payment success)."""
-        self.__class__.objects.filter(pk=self.pk).update(used_count=models.F('used_count') + 1)
-
-
 class Order(models.Model):
     """A placed order. Money amounts are snapshots computed on the backend."""
 
@@ -249,9 +85,6 @@ class Order(models.Model):
     shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total = models.DecimalField(max_digits=10, decimal_places=2)
 
-    coupon = models.ForeignKey(
-        Coupon, on_delete=models.SET_NULL, blank=True, null=True, related_name='orders',
-    )
     shipping_method = models.ForeignKey(
         ShippingMethod, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='orders',

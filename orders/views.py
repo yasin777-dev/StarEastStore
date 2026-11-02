@@ -15,12 +15,9 @@ from .forms import CheckoutForm
 from .models import Order, PaymentStatus, ShippingMethod
 from .services import (
     CheckoutError,
-    available_coupons,
     cancel_order,
     compute_totals,
-    format_money,
     place_order,
-    resolve_coupon,
 )
 
 
@@ -29,9 +26,6 @@ def _cart_lines(request):
     lines = cart.lines()
     # Drop phantom lines defensively; also refresh any stale quantity.
     return cart, lines
-
-
-COUPON_ACTIONS = {'apply_coupon', 'remove_coupon'}
 
 
 def _selected_shipping_method(request):
@@ -59,39 +53,6 @@ def checkout(request):
 
     methods = available_payment_methods()
     subtotal = cart.subtotal()
-    action = request.POST.get('action', 'place_order') if request.method == 'POST' else ''
-
-    # Applying or removing a coupon must never require the rest of the
-    # checkout form (address, shipping, payment) to be filled in first.
-    if action in COUPON_ACTIONS or action.startswith('apply_coupon:'):
-        data = request.POST.copy()
-        if action.startswith('apply_coupon:'):
-            # One-click apply from the offers list: the code is in the action.
-            data['coupon_code'] = action.split(':', 1)[1]
-        requested = (data.get('coupon_code') or '').strip()
-        if action == 'remove_coupon':
-            data['coupon_code'] = ''
-            messages.info(request, 'Coupon removed. Your total has been updated.')
-        elif not requested:
-            messages.info(request, 'Type a coupon code first, then press Apply.')
-        else:
-            coupon, error = resolve_coupon(requested, subtotal, request.user)
-            if error:
-                messages.error(request, error)
-            else:
-                data['coupon_code'] = coupon.code
-                messages.success(
-                    request,
-                    f'Coupon "{coupon.code}" applied. You save '
-                    f'{format_money(coupon.discount_for(subtotal))}.',
-                )
-        form = CheckoutForm(data, user=request.user, available_payment_methods=methods)
-        return render(request, 'orders/checkout.html', _checkout_context(
-            request, form, lines, subtotal, methods,
-            coupon_code=data.get('coupon_code', ''),
-            shipping_method=_selected_shipping_method(request),
-            show_form_errors=False,
-        ))
 
     if request.method == 'POST':
         form = CheckoutForm(
@@ -108,7 +69,6 @@ def checkout(request):
                         cart=cart,
                         address=form.cleaned_data['address_id'],
                         shipping_method_id=form.cleaned_data['shipping_method'].pk,
-                        coupon_code=form.cleaned_data.get('coupon_code', ''),
                         payment_method=form.cleaned_data['payment_method'],
                         customer_note=form.cleaned_data.get('customer_note', ''),
                     )
@@ -147,17 +107,13 @@ def checkout(request):
 
     return render(request, 'orders/checkout.html', _checkout_context(
         request, form, lines, subtotal, methods,
-        coupon_code=form.data.get('coupon_code', '') if form.is_bound else '',
         shipping_method=_selected_shipping_method(request),
     ))
 
 
-def _checkout_context(request, form, lines, subtotal, methods, coupon_code='',
-                      shipping_method=None, show_form_errors=True):
-    # The coupon lives only in this page's form until the order is placed, so
-    # the preview is recomputed from the posted code on every render.
-    coupon, _error = resolve_coupon(coupon_code, subtotal, request.user)
-    totals = compute_totals(subtotal, coupon, shipping_method)
+def _checkout_context(request, form, lines, subtotal, methods,
+                      shipping_method=None):
+    totals = compute_totals(subtotal, shipping_method)
     return {
         'form': form,
         'lines': lines,
@@ -170,10 +126,6 @@ def _checkout_context(request, form, lines, subtotal, methods, coupon_code='',
         'shipping_available': form.fields['shipping_method'].queryset.exists(),
         'shipping_method': totals.shipping_method,
         'addresses': request.user.addresses.all(),
-        'coupon_code': coupon_code,
-        'applied_coupon': coupon,
-        'coupon_offers': available_coupons(subtotal, request.user),
-        'show_form_errors': show_form_errors,
     }
 
 

@@ -10,14 +10,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
-from django.utils import timezone
 from django.db import transaction
-from django.db.models import F, Q
 
 
 from .models import (
-    Coupon, Order, OrderItem, OrderStatus, OrderStatusUpdate,
-    PaymentStatus, ShippingMethod,
+    Order, OrderItem, OrderStatus, OrderStatusUpdate, PaymentStatus, ShippingMethod,
 )
 
 
@@ -32,19 +29,18 @@ class OrderTotals:
     tax: Decimal
     shipping_fee: Decimal
     total: Decimal
-    coupon: Coupon | None = None
     shipping_method: ShippingMethod | None = None
 
 
 def compute_totals(
     subtotal: Decimal,
-    coupon: Coupon | None = None,
     shipping_method: ShippingMethod | None = None,
+    discount: Decimal = Decimal('0.00'),
 ) -> OrderTotals:
     """Single source of truth for order maths (backend only)."""
-    discount = Decimal('0.00')
-    if coupon is not None:
-        discount = coupon.discount_for(subtotal)
+    # A discount may be passed in (e.g. a manual goodwill discount from the
+    # admin); it can never be negative or exceed the subtotal itself.
+    discount = min(max(Decimal(discount), Decimal('0.00')), subtotal)
 
     discounted_subtotal = subtotal - discount
 
@@ -65,7 +61,6 @@ def compute_totals(
         tax=tax,
         shipping_fee=shipping_fee,
         total=total,
-        coupon=coupon,
         shipping_method=shipping_method,
     )
 
@@ -75,74 +70,8 @@ def format_money(amount: Decimal) -> str:
     return f'{settings.CURRENCY}{amount:,.2f}'
 
 
-def available_coupons(
-    subtotal: Decimal | None = None, user=None,
-) -> list[Coupon]:
-    """
-    Coupons shoppers are allowed to see: active, public, inside their
-    validity window, with redemptions left and still usable by ``user``.
-
-    When a ``subtotal`` is supplied each coupon is annotated with ``eligible``
-    and ``shortfall`` (how much more the cart needs) so the storefront can nudge
-    shoppers instead of letting them hit a rejection at checkout.
-    """
-    now = timezone.now()
-    coupons = (
-        Coupon.objects.filter(is_active=True, is_public=True, valid_from__lte=now)
-        .filter(Q(valid_until__isnull=True) | Q(valid_until__gte=now))
-        .filter(Q(usage_limit__isnull=True) | Q(used_count__lt=F('usage_limit')))
-    )
-    offers = []
-    for coupon in coupons:
-        # Hide codes this customer can no longer use (welcome gift already
-        # claimed, redemption limit reached) rather than advertising a dud.
-        if coupon.user_validation_error(user):
-            continue
-        coupon.eligible = subtotal is None or subtotal >= coupon.minimum_order_amount
-        coupon.shortfall = (
-            Decimal('0.00') if subtotal is None
-            else max(Decimal('0.00'), coupon.minimum_order_amount - subtotal)
-        )
-        offers.append(coupon)
-    offers.sort(key=lambda c: (not c.eligible, c.minimum_order_amount, -c.discount_value))
-    return offers
-
-
-def resolve_coupon(
-    code: str | None, subtotal: Decimal | None = None, user=None,
-) -> tuple[Coupon | None, str | None]:
-    """
-    Return (coupon, error). Coupon is None when no code supplied/invalid.
-
-    When ``subtotal`` is given the coupon's minimum order amount is checked
-    too, so shoppers get a clear reason instead of a silently applied coupon
-    that discounts nothing. When ``user`` is given, per-customer rules are
-    enforced as well (first-order-only welcome gifts, redemption limits).
-    """
-    code = (code or '').strip().upper()
-    if not code:
-        return None, None
-    coupon = Coupon.objects.filter(code=code).first()
-    if coupon is None:
-        return None, f'Coupon "{code}" was not found. Please check the code and try again.'
-    error = coupon.validation_error()
-    if error:
-        return None, error
-    error = coupon.user_validation_error(user)
-    if error:
-        return None, error
-    if subtotal is not None and subtotal < coupon.minimum_order_amount:
-        missing = coupon.minimum_order_amount - subtotal
-        return None, (
-            f'Coupon "{coupon.code}" needs a minimum order of '
-            f'{format_money(coupon.minimum_order_amount)}. '
-            f'Add {format_money(missing)} more to your cart to use it.'
-        )
-    return coupon, None
-
-
 @transaction.atomic
-def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
+def place_order(*, user, cart, address, shipping_method_id,
                 payment_method: str, customer_note: str = '') -> Order:
     """
     Validate everything again server-side and create a pending Order.
@@ -165,9 +94,6 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
             )
 
     subtotal = cart.subtotal()
-    coupon, coupon_error = resolve_coupon(coupon_code, subtotal, user)
-    if coupon_error:
-        raise CheckoutError(coupon_error)
 
     shipping_method = None
     if shipping_method_id:
@@ -177,7 +103,7 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
         if shipping_method is None:
             raise CheckoutError('Please choose a valid shipping method.')
 
-    totals = compute_totals(subtotal, coupon, shipping_method)
+    totals = compute_totals(subtotal, shipping_method)
 
     order = Order(
         user=user,
@@ -195,7 +121,6 @@ def place_order(*, user, cart, address, shipping_method_id, coupon_code='',
         tax=totals.tax,
         shipping_fee=totals.shipping_fee,
         total=totals.total,
-        coupon=coupon,
         shipping_method=shipping_method,
         shipping_method_name=shipping_method.name if shipping_method else '',
         payment_method=payment_method,
@@ -289,11 +214,6 @@ def cancel_order(order: Order, *, changed_by=None, notify: bool = True) -> None:
     if not order.can_be_cancelled_by_customer:
         raise CheckoutError('This order can no longer be cancelled.')
 
-    # A cancelled order must not keep burning a limited coupon redemption.
-    coupon_was_redeemed = bool(order.coupon_id) and order.payment_status in {
-        PaymentStatus.PAID, PaymentStatus.COD_PENDING,
-    }
-
     restore_order_stock(order)
 
     # If money was already captured online, flip the transaction + order to
@@ -310,10 +230,6 @@ def cancel_order(order: Order, *, changed_by=None, notify: bool = True) -> None:
         note='Cancelled by ' + ('admin' if changed_by and changed_by.is_staff else 'customer'),
         notify_customer=False,
     )
-    if coupon_was_redeemed:
-        Coupon.objects.filter(pk=order.coupon_id, used_count__gt=0).update(
-            used_count=F('used_count') - 1,
-        )
     if notify:
         from .emails import send_order_cancelled_email
 

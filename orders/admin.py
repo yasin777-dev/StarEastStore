@@ -1,4 +1,4 @@
-"""Order, item, coupon and shipping admin (sections 13-14)."""
+"""Order, item and shipping admin (sections 13-14)."""
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -6,8 +6,7 @@ from ecommerce.admin_site import admin_site
 
 from .services import set_order_status
 from .models import (
-    Coupon, Order, OrderItem, OrderStatus, OrderStatusUpdate,
-    PaymentStatus, ShippingMethod,
+    Order, OrderItem, OrderStatus, OrderStatusUpdate, PaymentStatus, ShippingMethod,
 )
 
 
@@ -45,9 +44,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_select_related = ('user',)
     date_hierarchy = 'created_at'
     readonly_fields = ('order_number', 'user', 'email', 'subtotal', 'discount',
-                       'tax', 'shipping_fee', 'total', 'coupon',
-                       'shipping_method_name', 'created_at', 'updated_at',
-                       'stock_deducted')
+                       'tax', 'shipping_fee', 'total', 'shipping_method_name',
+                       'created_at', 'updated_at', 'stock_deducted')
     inlines = [OrderItemInline, OrderStatusInline]
     list_per_page = 25
     actions = [
@@ -58,7 +56,7 @@ class OrderAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Order', {'fields': ('order_number', 'user', 'email', 'status',
                               'payment_status', 'payment_method', 'stock_deducted')}),
-        ('Money', {'fields': ('subtotal', 'discount', 'tax', 'shipping_fee', 'total', 'coupon')}),
+        ('Money', {'fields': ('subtotal', 'discount', 'tax', 'shipping_fee', 'total')}),
         ('Shipping', {'fields': ('shipping_full_name', 'shipping_phone',
                                  'shipping_address_line_1', 'shipping_address_line_2',
                                  'shipping_city', 'shipping_state', 'shipping_postal_code',
@@ -139,36 +137,6 @@ class ShippingMethodAdmin(admin.ModelAdmin):
     list_display = ('name', 'price', 'estimated_delivery', 'is_active', 'sort_order')
     list_editable = ('price', 'is_active', 'sort_order')
     search_fields = ('name',)
-
-
-@admin.register(Coupon, site=admin_site)
-class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'discount_display', 'minimum_order_amount',
-                    'maximum_discount', 'usage_summary', 'per_user_limit',
-                    'first_order_only', 'valid_from', 'valid_until',
-                    'is_active', 'is_public')
-    list_filter = ('discount_type', 'is_active', 'is_public', 'first_order_only')
-    list_editable = ('is_active', 'is_public')
-    fieldsets = (
-        ('Coupon', {'fields': ('code', 'is_active', 'is_public')}),
-        ('Discount', {'fields': ('discount_type', 'discount_value',
-                                 'minimum_order_amount', 'maximum_discount')}),
-        ('Limits', {'fields': ('usage_limit', 'used_count', 'per_user_limit',
-                               'first_order_only', 'valid_from', 'valid_until')}),
-    )
-    search_fields = ('code',)
-    readonly_fields = ('used_count',)
-
-    @admin.display(description='Discount')
-    def discount_display(self, obj):
-        if obj.discount_type == Coupon.DiscountType.PERCENTAGE:
-            return f'{obj.discount_value}%'
-        return f'{obj.discount_value}'
-
-    @admin.display(description='Usage')
-    def usage_summary(self, obj):
-        limit = obj.usage_limit if obj.usage_limit is not None else '∞'
-        return f'{obj.used_count} / {limit}'
 
 
 @admin.register(OrderItem, site=admin_site)

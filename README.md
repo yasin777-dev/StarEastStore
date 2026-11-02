@@ -3,7 +3,7 @@
 A production-ready e-commerce website built with **Python 3.12+ / Django 5.2 (LTS)**,
 PostgreSQL (SQLite fallback for development), Django REST Framework and a modern
 responsive Bootstrap 5 storefront. Every major feature works end-to-end —
-register → browse → cart → coupon → checkout → payment → verification → order →
+register → browse → cart → checkout → payment → verification → order →
 inventory updates → order history.
 
 ---
@@ -16,19 +16,17 @@ inventory updates → order history.
 | **Storefront** | Home, shop, category/brand pages, sale page, search, product detail with gallery, related products, reviews |
 | **Filtering** | Pagination, search, category/brand/price/availability filters, sorting by price / newest / popularity |
 | **Cart** | DB-backed cart for customers, session cart for guests, automatic merge at login, stock-aware quantities |
-| **Checkout** | Address selection/creation, shipping methods, coupons, order notes, backend-only price computation |
+| **Checkout** | Address selection/creation, shipping methods, order notes, backend-only price computation |
 | **Payments** | Gateway architecture: **Stripe Checkout**, **Razorpay**, **cash on delivery** and a built-in **simulated gateway** for demos. Server-side verification, idempotent completion, webhooks, full transaction records |
-| **Coupons** | Percentage/fixed discounts, expiry, minimum order, maximum discount cap, global and per-customer usage limits, first-order-only welcome gifts, public offers list on the cart and checkout pages (copy / one-click apply) |
 | **Orders** | Status workflow (pending → confirmed → processing → shipped → delivered / cancelled / refunded), item snapshots, audit trail, customer cancellation with stock restoration |
 | **Inventory** | Row-level-locked stock reduction (`select_for_update`), low-stock thresholds, restoration on cancel/refund, overselling protection |
 | **Reviews** | 1–5 ratings with distribution bars, verified-purchase enforcement, one review per user per product (editable) |
 | **Wishlist** | Toggle, dedupe, move-to-cart |
 | **Accounts** | Email-based registration/login, custom user model, profiles with image upload, multiple addresses with defaults, password reset/change, login rate limiting |
 | **Admin** | Custom admin site with operations dashboard (sales, orders, customers, low-stock alerts, recent orders), inlines, filters, bulk order status actions |
-| **API** | DRF endpoints for products/categories/brands (filter+search+ordering), cart, wishlist, orders, reviews, token auth |
 | **Email** | Welcome, password reset, order confirmation, payment confirmation, shipped/delivered/cancelled notifications — all configurable via env vars |
 | **Security** | CSRF, XSS/SQLi-safe ORM, clickjacking protection, upload validation (extension + magic bytes + size), rate limiting, hardened production settings, `.env` secrets |
-| **Testing** | 234 automated tests covering registration, cart, coupons, checkout, payment verification, inventory, permissions, reviews, wishlist, APIs |
+| **Testing** | 180 automated tests covering registration, cart, checkout, payment verification, inventory, permissions, reviews and wishlist |
 
 ## Technology
 
@@ -61,7 +59,7 @@ cp .env.example .env         # defaults work out of the box (SQLite + console em
 # 5. Database
 python manage.py migrate
 
-# 6. Demo data (admin, customer, 32 products with generated images, coupons…)
+# 6. Demo data (admin, customer, 32 products with generated images…)
 python manage.py seed_data
 
 # 7. Run
@@ -73,7 +71,6 @@ Visit:
 * Storefront — <http://127.0.0.1:8000/>
 * Admin panel — <http://127.0.0.1:8000/admin/> (`admin@stareaststore.com` / `admin12345!` — dev defaults, change them!)
 * Demo customer — `demo@stareaststore.com` / `demo12345!` (has sample orders, address, reviews)
-* REST API — <http://127.0.0.1:8000/api/products/>
 
 > Demo credentials are printed by `seed_data` and come from `DJANGO_ADMIN_EMAIL` /
 > `DJANGO_ADMIN_PASSWORD` / `DEMO_CUSTOMER_EMAIL` / `DEMO_CUSTOMER_PASSWORD`
@@ -91,8 +88,8 @@ python manage.py createsuperuser    # prompts for email + password
 python manage.py test
 ```
 
-173 tests cover registration/login, product search & filters, cart operations
-and quantity validation, coupon rules, checkout, order creation, inventory
+180 tests cover registration/login, product search & filters, cart operations
+and quantity validation, checkout, order creation, inventory
 reduction/restoration, payment verification & idempotency, permissions,
 reviews and the wishlist.
 
@@ -113,12 +110,11 @@ StarEastStore/
 ├── accounts/              # custom user, profiles, addresses, auth backend
 ├── products/              # categories, brands, products, images, variants, search
 ├── cart/                  # session + database carts, merge service, stock service
-├── orders/                # checkout, orders, items, coupons, shipping methods
+├── orders/                # checkout, orders, items, shipping methods
 ├── payments/              # gateway abstraction: simulated / Stripe / Razorpay
 ├── reviews/               # verified-purchase reviews
 ├── wishlist/              # wishlist with move-to-cart
 ├── core/                  # home/static pages, contact, emails, utils, seed_data
-├── api/                   # DRF serializers, viewsets, routes
 ├── templates/             # base + per-app templates, emails, admin override
 ├── static/                # CSS, JS, vendored Bootstrap
 ├── media/                 # uploads (gitignored, created at runtime)
@@ -128,7 +124,7 @@ StarEastStore/
 ## The payment flow (section 27 of the spec)
 
 ```text
-Checkout (address + shipping + coupon + payment method)
+Checkout (address + shipping + payment method)
    ↓  place_order()  — everything re-validated server-side
 Order created (status=pending) + PaymentTransaction (initiated)
    ↓  gateway.initiate()
@@ -139,7 +135,6 @@ Return URL → server verifies with the gateway (never the browser)
 Payment marked succeeded → order paid + confirmed
    ↓
 Stock reduced exactly once (stock_deducted flag guards double deduction)
-Coupon usage incremented exactly once
    ↓
 Order + payment confirmation emails → order history
 ```
@@ -198,19 +193,6 @@ The checkout page loads Razorpay's checkout.js; the handler posts the payment
 identifiers back and the server verifies the HMAC signature before marking
 the order paid. Webhooks: `/payment/webhook/razorpay/`.
 
-## API overview
-
-| Endpoint | Methods | Auth |
-|---|---|---|
-| `/api/products/` · `/api/products/<slug>/` | GET | public (search `?search=`, filters `?category=&brand=&min_price=&max_price=&in_stock=`, ordering `?ordering=`) |
-| `/api/categories/` · `/api/brands/` | GET | public |
-| `/api/products/<slug>/reviews/` | GET | public |
-| `/api/cart/` | GET/POST/PATCH/DELETE | session (guest ok) |
-| `/api/wishlist/` | GET/POST/DELETE | required |
-| `/api/orders/` · `/api/orders/<number>/` | GET | required (owner only) |
-| `/api/reviews/create/` | POST | required (+verified purchase) |
-| `/api/auth/token/` | POST | credentials → DRF token |
-
 ## Production deployment
 
 ### Docker (recommended)
@@ -252,7 +234,7 @@ database:
    static files and starts Gunicorn.
 3. Create the first admin account from the Render **Shell**:
    `python manage.py createsuperuser`.
-4. Optional demo data (their own accounts, 32 products, coupons):
+4. Optional demo data (their own accounts, 32 products):
    `python manage.py seed_data`.
 
 Your service is reachable at `https://<service-name>.onrender.com` - the
@@ -377,7 +359,7 @@ These changes cannot recover orders that were never saved or a deleted database.
 
 | Command | Purpose |
 |---|---|
-| `python manage.py seed_data` | Demo catalog, users, coupons, orders (`--force` to re-run) |
+| `python manage.py seed_data` | Demo catalog, users, orders (`--force` to re-run) |
 | `python manage.py migrate` | Apply migrations |
 | `python manage.py test` | Run the test suite |
 

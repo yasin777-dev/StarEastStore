@@ -20,7 +20,7 @@ from django.utils import timezone
 from PIL import Image, ImageDraw
 
 from accounts.models import User
-from orders.models import Coupon, ShippingMethod
+from orders.models import ShippingMethod
 from products.models import Brand, Category, Product, ProductImage, ProductVariant
 
 # Deterministic-ish but varied palette for generated imagery.
@@ -78,7 +78,7 @@ def render_product_image(product_name: str, category: str, index: int, size: int
 
 
 class Command(BaseCommand):
-    help = 'Populate the database with demo catalog, users, coupons and orders.'
+    help = 'Populate the database with demo catalog, users and orders.'
 
     def add_arguments(self, parser):
         parser.add_argument('--force', action='store_true',
@@ -170,18 +170,14 @@ class Command(BaseCommand):
             brands = self.create_brands()
             products = self.create_products(categories, brands)
             self.create_shipping_methods()
-            self.create_coupons()
             self.create_reviews(customer, products)
             self.create_sample_orders(customer, products, admin)
 
         self.stdout.write(self.style.SUCCESS('\n✅ Seed data created:'))
         self.stdout.write(f'   Admin:      {admin.email} (password from env or "admin12345!")')
         self.stdout.write(f'   Customer:   {customer.email} (password from env or "demo12345!")')
-        self.stdout.write('   New shopper: newbie@stareaststore.com / newbie12345! (no orders -> can use WELCOME100)')
+        self.stdout.write('   New shopper: newbie@stareaststore.com / newbie12345! (no order history)')
         self.stdout.write(f'   Categories: {len(categories)}  Brands: {len(brands)}  Products: {len(products)}')
-        self.stdout.write(
-            '   Coupons:    WELCOME100 (₹100 off, first order) · SAVE200 · SAVE400 · VIP20 · FESTIVE10'
-        )
         self.stdout.write('   Run the server with: python manage.py runserver')
 
     # ------------------------------------------------------------- creators
@@ -213,8 +209,8 @@ class Command(BaseCommand):
                 city='Portside', state='CA', postal_code='94000',
                 country='India', is_default=True,
             )
-        # A pristine shopper with no order history: handy for checking
-        # first-order coupons such as WELCOME100 after seeding.
+        # A pristine shopper with no order history, handy for testing the
+        # first-order customer experience after seeding.
         new_email = os.environ.get('DEMO_NEW_CUSTOMER_EMAIL', 'newbie@stareaststore.com')
         if not User.objects.filter(email=new_email).exists():
             from accounts.models import Address
@@ -331,58 +327,6 @@ class Command(BaseCommand):
             defaults={'price': 2.49, 'estimated_delivery': '2-4 business days',
                       'description': 'Collect from a nearby locker', 'sort_order': 3},
         )
-
-    def create_coupons(self):
-        """A small ladder of demo offers, from welcome gift to big-basket."""
-        now = timezone.now()
-
-        # code -> {field: value}. Re-running the command refreshes the terms so
-        # an existing demo database picks up the current offer ladder.
-        offers = [
-            ('WELCOME100', {
-                'discount_type': Coupon.DiscountType.FIXED,
-                'discount_value': 100, 'minimum_order_amount': 499,
-                'first_order_only': True, 'per_user_limit': 1,
-                'valid_from': now - timedelta(days=30),
-                'valid_until': None, 'is_active': True, 'is_public': True,
-            }),
-            ('SAVE200', {
-                'discount_type': Coupon.DiscountType.FIXED,
-                'discount_value': 200, 'minimum_order_amount': 3000,
-                'valid_from': now - timedelta(days=10),
-                'valid_until': now + timedelta(days=180), 'is_active': True,
-                'is_public': True,
-            }),
-            ('SAVE400', {
-                'discount_type': Coupon.DiscountType.FIXED,
-                'discount_value': 400, 'minimum_order_amount': 5000,
-                'valid_from': now - timedelta(days=10),
-                'valid_until': now + timedelta(days=180), 'is_active': True,
-                'is_public': True,
-            }),
-            ('VIP20', {
-                'discount_type': Coupon.DiscountType.PERCENTAGE,
-                'discount_value': 20, 'minimum_order_amount': 1000,
-                'maximum_discount': 500, 'usage_limit': 100,
-                'valid_from': now - timedelta(days=5),
-                'valid_until': now + timedelta(days=90), 'is_active': True,
-                'is_public': True,
-            }),
-            ('FESTIVE10', {
-                'discount_type': Coupon.DiscountType.PERCENTAGE,
-                'discount_value': 10, 'minimum_order_amount': 1500,
-                'maximum_discount': 250,
-                'valid_from': now - timedelta(days=2),
-                'valid_until': now + timedelta(days=30), 'is_active': True,
-                'is_public': True,
-            }),
-        ]
-        for code, terms in offers:
-            Coupon.objects.update_or_create(code=code, defaults=terms)
-
-        # Legacy demo codes from earlier seeds would otherwise linger in the
-        # storefront offers list.
-        Coupon.objects.filter(code__in=['WELCOME10', 'SAVE5']).update(is_active=False)
 
     def create_reviews(self, customer, products):
         from reviews.models import Review

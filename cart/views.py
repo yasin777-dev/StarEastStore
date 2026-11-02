@@ -6,7 +6,6 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 
-from orders.services import available_coupons
 from products.models import Product
 
 from .services import CartError, get_cart
@@ -20,10 +19,6 @@ def cart_detail(request):
         'lines': lines,
         'subtotal': subtotal,
         'count': cart.count(),
-        # Advertised coupons, flagged with how much more the cart needs.
-        'coupon_offers': available_coupons(
-            subtotal, request.user if request.user.is_authenticated else None,
-        ) if lines else [],
     })
 
 
