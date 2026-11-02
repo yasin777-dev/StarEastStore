@@ -466,6 +466,9 @@ h1, h2, h3, h4, .se-section-title, .se-hero-title, .se-card-title {
   background: var(--se-surface); box-shadow: var(--se-shadow-hard-sm);
 }
 .se-form-card .card-footer { border-top: 2px solid var(--se-border); }
+.se-add-form { padding-top: .35rem; }
+.se-add-form .btn { min-height: 46px; }
+.se-add-form .se-qty-group { display: inline-flex; align-items: center; gap: .35rem; }
 .se-perks-row i { color: var(--se-ink); }
 .se-review-card { border: 2px solid var(--se-border); border-radius: 14px; }
 .se-stars i { font-size: .82rem; }
