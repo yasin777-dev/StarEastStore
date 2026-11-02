@@ -106,9 +106,16 @@
             <span class="se-sale-brand-tagline">{{ SHOP_TAGLINE }}</span>
           </span>
         </a>
-        <span class="badge se-badge-sale fs-6 mb-2">Limited time</span>
-        <h2 class="text-white fw-bold text-uppercase">Up to 50% off</h2>
-        <p class="text-white-50 mb-4">Grab today's deals before they're gone. All sale items clearly marked with the discount.</p>
+        <span class="badge se-badge-sale fs-6 mb-2">Happy Holiday</span>
+        <h2 class="se-sale-band-title text-white fw-bold text-uppercase">
+          Happy Holiday Sales<br><span class="se-sale-accent">Up to 50% off</span>
+        </h2>
+        <p class="text-white-50 mb-3">Grab today's deals before they're gone. All sale items clearly marked with the discount.</p>
+        <ul class="se-sale-perks list-unstyled d-flex flex-wrap gap-2 mb-4">
+          <li><i class="bi bi-truck"></i>Free shipping over {{ CURRENCY }}{{ FREE_SHIPPING_THRESHOLD|floatformat:0 }}</li>
+          <li><i class="bi bi-arrow-repeat"></i>30-day returns</li>
+          <li><i class="bi bi-shield-check"></i>Secure checkout</li>
+        </ul>
         <a href="{% url 'products:sale' %}" class="btn btn-light fw-semibold">Shop the sale <i class="bi bi-arrow-right ms-1"></i></a>
       </div>
       <div class="col-lg-8">
