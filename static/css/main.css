@@ -296,6 +296,51 @@ h1, h2, h3, h4, .se-section-title, .se-hero-title, .se-card-title {
 }
 .se-sale-band .btn-light:hover { background: var(--se-paper); color: var(--se-ink); }
 
+/* Sale band copy: keeps the headline block tall enough to balance the grid */
+.se-sale-band-title {
+  font-size: clamp(1.75rem, 3.4vw, 2.6rem);
+  line-height: 1.05; letter-spacing: -.035em; margin-bottom: .75rem;
+}
+.se-sale-accent { color: var(--se-lime); }
+
+.se-sale-perks { margin: 0; }
+.se-sale-perks li {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: rgba(246, 244, 239, .08);
+  border: 1px solid rgba(246, 244, 239, .3);
+  border-radius: var(--se-pill);
+  color: rgba(246, 244, 239, .9);
+  font-size: .74rem; font-weight: 700;
+  padding: .3rem .7rem;
+}
+.se-sale-perks li i { color: var(--se-lime); font-size: .8rem; }
+
+/* Holiday note (cart empty state) */
+.se-holiday-note {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  justify-content: center; gap: .15rem;
+  background: var(--se-lime); color: var(--se-ink);
+  border: 2px solid var(--se-ink); border-radius: var(--se-pill);
+  font-weight: 700; font-size: .82rem;
+  padding: .4rem .9rem; margin: .25rem 0 1rem;
+}
+.se-holiday-note a { color: var(--se-ink); text-decoration: underline; text-underline-offset: 2px; }
+.se-holiday-note a:hover { color: var(--se-ink); }
+
+/* Footer promo strip */
+.se-footer-promo {
+  background: var(--se-lime); color: var(--se-ink);
+  border-bottom: 2px solid var(--se-ink);
+  padding-block: .7rem; text-align: center;
+  font-weight: 700; font-size: .84rem;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.se-footer-promo-link {
+  color: var(--se-ink); text-decoration: none;
+  border-bottom: 2px solid var(--se-ink); padding-bottom: 1px;
+}
+.se-footer-promo-link:hover { color: var(--se-ink); opacity: .75; }
+
 /* --------------------------------------------------------------------------
    Product card (sticker look)
    -------------------------------------------------------------------------- */
