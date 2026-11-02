@@ -276,3 +276,77 @@ class CheckoutPreviewTests(TestCase):
         self.assertContains(
             response, f'Place order · {settings.CURRENCY}34.99',
         )
+
+
+class CheckoutTamperedInputTests(TestCase):
+    """Checkout must survive tampered/malformed posts without a 500.
+
+    Regression guard: the live-totals preview queried
+    ``ShippingMethod.objects.filter(pk=<raw POST value>)``, so ``pk=abc``
+    raised ValueError and the checkout page returned a 500.
+    """
+
+    def setUp(self):
+        from cart.services import DatabaseCart
+
+        self.client = Client()
+        self.user = User.objects.create_user('tamper@example.com', 'x1A!aaaa')
+        self.address = Address.objects.create(
+            user=self.user, full_name='Tamper', phone='5551234567',
+            address_line_1='9 Test Rd', city='Town', state='TS',
+            postal_code='12345', country='India',
+        )
+        self.shipping = ShippingMethod.objects.create(name='Courier', price=Decimal('4.99'))
+        self.product = Product.objects.create(
+            name='Tamper Widget', sku='TP-1',
+            category=Category.objects.create(name='Tamper Cat'),
+            description='Tamperable', price=Decimal('20.00'), stock_quantity=10,
+        )
+        self.cart = DatabaseCart(self.user)
+        self.cart.add(self.product, None, 1)
+        self.client.force_login(self.user)
+
+    def _order_count(self):
+        return Order.objects.filter(user=self.user).count()
+
+    def test_non_numeric_shipping_method_does_not_crash(self):
+        response = self.client.post(reverse('orders:checkout'), {
+            'address_id': self.address.pk, 'shipping_method': 'abc',
+            'payment_method': 'cod', 'action': 'place_order',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._order_count(), 0)
+
+    def test_non_numeric_address_id_does_not_crash(self):
+        response = self.client.post(reverse('orders:checkout'), {
+            'address_id': 'abc', 'shipping_method': self.shipping.pk,
+            'payment_method': 'cod', 'action': 'place_order',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._order_count(), 0)
+
+    def test_all_ids_garbage(self):
+        response = self.client.post(reverse('orders:checkout'), {
+            'address_id': 'nope', 'shipping_method': 'nope',
+            'payment_method': 'bitcoin', 'action': 'place_order',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._order_count(), 0)
+
+    def test_tampered_totals_are_ignored(self):
+        self.client.post(reverse('orders:checkout'), {
+            'address_id': self.address.pk, 'shipping_method': self.shipping.pk,
+            'payment_method': 'cod', 'action': 'place_order',
+            'subtotal': '1.00', 'total': '1.00', 'discount': '999.00',
+        })
+        order = Order.objects.get(user=self.user)
+        self.assertEqual(order.subtotal, self.product.effective_price)
+        self.assertEqual(order.discount, Decimal('0.00'))
+        self.assertGreater(order.total, Decimal('1.00'))
+
+    def test_unknown_shipping_method_falls_back_to_default(self):
+        response = self.client.post(reverse('orders:checkout'), {
+            'address_id': self.address.pk, 'shipping_method': 999999,
+            'payment_method': 'cod', 'action': 'place_order',
+        })
+        self.assertEqual(response.status_code, 200)

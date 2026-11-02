@@ -2,7 +2,14 @@
   <div class="container">
     <div class="row g-4 py-5">
       <div class="col-6 col-lg-3">
-        <h5 class="se-footer-brand"><i class="bi bi-stars me-1"></i>{{ SHOP_NAME }}</h5>
+        <h5 class="se-footer-brand d-flex align-items-center gap-2">
+          <span class="se-brand-mark se-brand-mark-sm" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path d="M12 3.2l1.9 4.9 4.9-1.9-1.9 4.9 4.9 1.9-4.9 1.9 1.9 4.9-4.9-1.9L12 20.8l-1.9-4.9-4.9 1.9 1.9-4.9L2.2 12l4.9-1.9-1.9-4.9 4.9 1.9z" fill="currentColor"/>
+            </svg>
+          </span>
+          {{ SHOP_NAME }}
+        </h5>
         <p class="text-secondary small">{{ SHOP_TAGLINE }}. Quality products, fair prices,
           fast delivery - seven days a week.</p>
       </div>

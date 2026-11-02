@@ -22,17 +22,33 @@ def cart_detail(request):
     })
 
 
+def _positive_int(value) -> int | None:
+    """Parse a posted id leniently.
+
+    Returns None for blank/missing/garbage values so a malformed form post
+    becomes a friendly message instead of a 500 from the ORM (``filter(pk='abc')``
+    raises ValueError).
+    """
+    if value in (None, ''):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def _resolve_product(request):
     """Validate the posted product/variant ids. Returns (product, variant)."""
-    product_id = request.POST.get('product_id')
-    variant_id = request.POST.get('variant_id')
-    if not product_id:
+    product_id = _positive_int(request.POST.get('product_id'))
+    variant_id = _positive_int(request.POST.get('variant_id'))
+    if product_id is None:
         raise CartError('No product specified.')
     product = Product.objects.listed().filter(pk=product_id).first()
     if product is None:
         raise CartError('That product is no longer available.')
     variant = None
-    if variant_id:
+    if variant_id is not None:
         variant = product.variants.filter(pk=variant_id, is_active=True).first()
         if variant is None:
             raise CartError('That variant is no longer available.')
@@ -85,28 +101,28 @@ def cart_add(request):
 @require_POST
 def cart_update(request):
     cart = get_cart(request)
-    try:
-        product_id = int(request.POST.get('product_id', 0))
-    except (TypeError, ValueError):
+    product_id = _positive_int(request.POST.get('product_id'))
+    if product_id is None:
         messages.error(request, 'Invalid product.')
         return redirect('cart:detail')
-    variant_id = request.POST.get('variant_id') or None
-    cart.update(product_id, int(variant_id) if variant_id else None,
-                _parse_quantity(request))
-    messages.success(request, 'Cart updated.')
+    variant_id = _positive_int(request.POST.get('variant_id'))
+    try:
+        cart.update(product_id, variant_id, _parse_quantity(request))
+    except CartError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Cart updated.')
     return redirect('cart:detail')
 
 
 @require_POST
 def cart_remove(request):
     cart = get_cart(request)
-    try:
-        product_id = int(request.POST.get('product_id', 0))
-    except (TypeError, ValueError):
+    product_id = _positive_int(request.POST.get('product_id'))
+    if product_id is None:
         messages.error(request, 'Invalid product.')
         return redirect('cart:detail')
-    variant_raw = request.POST.get('variant_id') or None
-    variant_id = int(variant_raw) if variant_raw else None
+    variant_id = _positive_int(request.POST.get('variant_id'))
     try:
         cart.remove(product_id, variant_id)
         messages.success(request, 'Item removed from your cart.')
